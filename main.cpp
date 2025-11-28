@@ -11,8 +11,9 @@ int main(){
     ItemManager itemT;
     Room* current_room;
 
-    Item* wooden_sword = itemT.getItem(101);
+    Item* wooden_sword = itemT.getItem(100);
     Item* potion = itemT.getItem(1);
+    Item* armor = itemT.getItem(200);
 
     if (wooden_sword != nullptr) {
         hero.addItem(wooden_sword);
@@ -20,11 +21,18 @@ int main(){
     if (potion != nullptr) {
         hero.addItem(potion);
     }
-
+    if (armor != nullptr)
+    {
+        hero.addItem(armor);
+        hero.addItem(armor);
+    }
+    
     mapT.loadMap("Rooms.txt");
     current_room = mapT.getRoom(4);
 
+    hero.printEquipment();
     hero.printInventory();
-
-    std::cout << current_room->info;
+    armor->use(&hero);
+    hero.printEquipment();
+    hero.printInventory();
 }

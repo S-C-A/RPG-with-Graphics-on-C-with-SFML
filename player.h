@@ -58,16 +58,9 @@ public:
 
     bool addItem(Item* item);
 
-    void equipWeapon(Weapon* newWeapon){
-        if(newWeapon = nullptr) return;
+    void equipArmor(Armor* newArmor);
 
-        if (equippedWeapon != nullptr)
-        {
-            
-        }
-        
-
-    }
+    void equipWeapon(Weapon* newWeapon);
 
     void addExp(int amount) {
         if (lvl >= MAX_LVL) return;
@@ -117,6 +110,7 @@ public:
     }
 
     void printInventory();
+    void printEquipment();
 
     void printStats() {
         std::cout << "--- Status ---" << std::endl;
@@ -148,6 +142,26 @@ inline bool Player::addItem(Item* item){
     }
 }
 
+inline void Player::equipArmor(Armor* newArmor){
+    if (newArmor == nullptr) return;
+
+    for (size_t i = 0; i < inventory.size(); i++) {
+        if (inventory[i] == newArmor) {
+            inventory.erase(inventory.begin() + i);
+            break;
+        }
+    }
+    
+    Armor* oldArmor = equippedArmor;
+    equippedArmor = newArmor;
+
+    if (oldArmor != nullptr)
+    {
+        inventory.push_back(oldArmor);
+        std::cout << oldArmor->getName() << " cantaya geri kondu." << std::endl;
+    }
+}
+
 inline void Player::printInventory() {
     std::cout << "--- BACKPACK (" << inventory.size() << "/10) ---" << std::endl;
     
@@ -157,9 +171,15 @@ inline void Player::printInventory() {
     }
 
     for (size_t i = 0; i < inventory.size(); i++) {
-        // item.h yukarıda ekli olduğu için getName() artık çalışır!
         std::cout << "[" << i << "] " << inventory[i]->getName() << std::endl;
     }
     std::cout << "----------------------" << std::endl;
+}
+
+inline void Player::printEquipment() {
+
+        std::cout << "-------------" << std::endl;
+        std::cout << "Armor: " << (equippedArmor == nullptr ? "No Armor" : equippedArmor->getName()) << std::endl;
+        std::cout << "-------------" << std::endl;
 }
 

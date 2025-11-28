@@ -22,6 +22,8 @@ public:
 
     virtual ~Item() {}
 
+    virtual Item* clone() const = 0;
+
     int getID() { return ID; }
     string getName() { return name; }
     string getInfo() { return info; }
@@ -41,6 +43,10 @@ public:
     Consumable() : Item() {}    
     Consumable(int a, string b, string c, ItemStats _stats) : Item(a, b, c){
         stats = _stats;
+    }
+
+    Item* clone() const override {
+        return new Consumable(*this); 
     }
 
     bool use(Player* user) override {
@@ -73,12 +79,16 @@ public:
         defense = def;
     }
 
-    int getPower() { return defense; }
+    int getDefense() { return defense; }
+
+    Item* clone() const override {
+        return new Armor(*this); 
+    }
 
     bool use(Player* user) override{
 
-        // user->equipArmor(this); 
-        cout << getName() << " kusandin! Korunman artti." << endl;
+        user->equipArmor(this); 
+        cout << getName() << " kusandin!" << endl;
         return false;
     }
 };
@@ -94,6 +104,10 @@ public:
 
     int getPower() { return power; }
 
+    Item* clone() const override {
+        return new Weapon(*this); 
+    }
+
     bool use(Player* user) override{
 
         // user->equipWeapon(this);
@@ -106,6 +120,10 @@ class KeyItem : public Item {
 public:
     
     KeyItem(int id, string name, string desc) : Item(id, name, desc) {}
+
+    Item* clone() const override {
+        return new KeyItem(*this); 
+    }
 
     bool canDrop() override {
         return false; 
