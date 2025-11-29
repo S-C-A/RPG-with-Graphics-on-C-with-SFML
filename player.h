@@ -2,6 +2,7 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include "condition.h"
 
 class Item;
 class Weapon;
@@ -12,6 +13,7 @@ private:
     int max_hp;
     int hp;
     int atk;
+    int def;
     int exp;
     int lvl;
     int gold;
@@ -19,6 +21,7 @@ private:
     Weapon* equippedWeapon;
     Armor* equippedArmor;
 
+    std::vector<StatusEffect> statusActive;
     std::vector<Item*> inventory;
 
     const int MAX_LVL = 5;
@@ -26,12 +29,14 @@ private:
     const int lvl_need[5] = {20, 45, 75, 120, 180};
     const int hp_table[5] = {40, 65, 100, 150, 230};
     const int base_atk[5] = {5, 9, 15, 22, 30};
+    const int base_def[5] = {3, 7, 11, 16, 22};
 
     void lvlUp() {
         if (lvl < MAX_LVL) {
             lvl++;
             max_hp = hp_table[lvl - 1];
             atk = base_atk[lvl - 1];
+            def = base_def[lvl -1];
             std::cout << ">>> TEBRIKLER! SEVIYE " << lvl << " OLDUNUZ! <<<" << std::endl;
         }
     }
@@ -44,6 +49,7 @@ public:
         max_hp = hp_table[0];
         hp = max_hp;
         atk = base_atk[0];
+        def = base_def[0];
         current_room = 0;
         equippedWeapon = nullptr;
         equippedArmor = nullptr;
@@ -51,10 +57,57 @@ public:
 
     int getHp() { return hp; }
     int getMaxHp() { return max_hp; }
-    int getAtk() { return atk; }
     int getLvl() { return lvl; }
     int getExp() { return exp; }
     int getGold() { return gold; }
+    int getAtk();
+    int getDef();
+
+    void addStatus(StatusEffect effect){
+        statusActive.push_back(effect);
+    }
+
+    bool hasStatus(StatusType typeCheck){
+        for (size_t i = 0; i < statusActive.size(); i++)
+        {
+            if (statusActive[i].type == typeCheck) return true;
+        }
+        return false;
+    }
+
+    void updateStatus() {
+        for (int i = (int)statusActive.size() - 1; i >= 0; i--) 
+        {
+            StatusEffect& effect = statusActive[i];
+
+            switch (effect.type) 
+            {
+            case BLEED:
+                hurt(effect.power);
+                std::cout << "You bleed away " << effect.power << " health..." << std::endl;
+                break;
+            
+            case POISON:
+                hurt(effect.power);
+                std::cout << "Poison eats away " << effect.power << " health..." << std::endl;
+                break;
+
+            case BURN:
+                hurt(effect.power);
+                std::cout << "Fire burns away " << effect.power << " health..." << std::endl;
+                break;
+            
+            default:
+                break;
+            }
+            effect.duration--;
+
+            if (effect.duration <= 0) {
+                std::cout << "An effect has worn off." << std::endl;
+                statusActive.erase(statusActive.begin() + i);
+            }
+        }
+    }
 
     bool addItem(Item* item);
 
@@ -117,7 +170,8 @@ public:
     void printStats() {
         std::cout << "--- Status ---" << std::endl;
         std::cout << "Hp: " << hp << "/" << max_hp << std::endl;
-        std::cout << "Strength: " << atk << std::endl;
+        std::cout << "Strength: " << getAtk() << std::endl;
+        std::cout << "Defense: " << getDef() << std::endl;
         std::cout << "Level: " << lvl << (lvl == MAX_LVL ? " (MAX)" : "") << std::endl;
         std::cout << "Gold: " << gold << std::endl;
 
@@ -131,6 +185,37 @@ public:
 };
 
 #include "item.h"
+
+inline int Player::getAtk() { 
+    int totalAtk = atk; 
+    
+    if (equippedWeapon != nullptr) {
+        totalAtk += equippedWeapon->getPower();
+    }
+
+    for (size_t i = 0; i < statusActive.size(); i++) {
+        if (statusActive[i].type == STR_BUFF) {
+            totalAtk += statusActive[i].power; 
+        }
+    }
+    return totalAtk; 
+}
+
+inline int Player::getDef() { 
+    int totalDef = def;
+    
+    if (equippedArmor != nullptr) {
+        totalDef += equippedArmor->getDefense();
+    }
+
+    for (size_t i = 0; i < statusActive.size(); i++) {
+        if (statusActive[i].type == DEF_BUFF) {
+            totalDef += statusActive[i].power; 
+        }
+    }
+
+    return totalDef; 
+}
 
 inline bool Player::addItem(Item* item){
     if (inventory.size() < 10)
