@@ -62,6 +62,8 @@ public:
 
     void equipWeapon(Weapon* newWeapon);
 
+    void useItem(int index);
+
     void addExp(int amount) {
         if (lvl >= MAX_LVL) return;
 
@@ -139,6 +141,19 @@ inline bool Player::addItem(Item* item){
     } else {
         std::cout <<"Item couldn't be added to inventory" <<std::endl;
         return false;
+    }
+}
+
+inline void Player::useItem(int index){
+    if (index >= inventory.size()){
+        std::cout << "Gecersiz esya secimi!" << std::endl;
+        return;
+    }
+    Item* itemToUse = inventory[index];
+    bool isConsumed = itemToUse->use(this);
+    if (isConsumed == true) {
+        delete itemToUse;
+        inventory.erase(inventory.begin() + index);
     }
 }
 

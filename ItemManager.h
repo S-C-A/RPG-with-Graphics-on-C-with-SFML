@@ -42,7 +42,7 @@ public:
 
     Item* getItem(int id) {
         if (itemDB.find(id) != itemDB.end()) {
-            return itemDB[id];
+            return itemDB[id]->clone(); 
         }
         return nullptr;
     }

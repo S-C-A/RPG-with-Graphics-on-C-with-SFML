@@ -13,27 +13,21 @@ int main(){
 
     Item* wooden_sword = itemT.getItem(100);
     Item* potion = itemT.getItem(1);
-    Item* armor = itemT.getItem(200);
+    Item* leather_armor = itemT.getItem(200);
     Item* poison = itemT.getItem(2);
     Item* key = itemT.getItem(300);
 
-    if (wooden_sword != nullptr) {
-        hero.addItem(wooden_sword);
-    }
-    if (potion != nullptr) {
-        hero.addItem(potion);
-    }
-    if (armor != nullptr)
-    {
-        hero.addItem(armor);
-        hero.addItem(armor);
-    }
+    hero.addItem(potion);
+    hero.addItem(leather_armor);
+    hero.addItem(wooden_sword);
+    hero.addItem(poison);
+    hero.addItem(key);
     
-    mapT.loadMap("Rooms.txt");
-    current_room = mapT.getRoom(4);
-
-    hero.printEquipment();
-    hero.printStats();
     hero.printInventory();
+    hero.printEquipment();
+    hero.hurt(25);
+    hero.useItem(4);
+    hero.printInventory();
+    hero.printEquipment();
 
 }
