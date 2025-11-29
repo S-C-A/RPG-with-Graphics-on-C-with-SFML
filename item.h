@@ -110,8 +110,8 @@ public:
 
     bool use(Player* user) override{
 
-        // user->equipWeapon(this);
-        cout << getName() << " kusandin! Saldiri gucun artti." << endl;
+        user->equipWeapon(this);
+        cout << getName() << " kusandin!" << endl;
         return false;
     }
 };

@@ -21,7 +21,7 @@ public:
     void initItems() {
         // --- CONSUMABLES ---
         ItemStats potStats; 
-        potStats.healVal = 20;
+        potStats.healVal = 10;
         itemDB[1] = new Consumable(1, "Kucuk Iksir", "20 Can yeniler", potStats);
 
         ItemStats poisonStats;

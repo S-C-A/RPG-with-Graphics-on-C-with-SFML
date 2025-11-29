@@ -142,6 +142,27 @@ inline bool Player::addItem(Item* item){
     }
 }
 
+inline void Player::equipWeapon(Weapon* newWeapon){
+    if (newWeapon == nullptr) return;
+
+    for (size_t i = 0; i < inventory.size(); i++) {
+        if (inventory[i] == newWeapon) {
+            inventory.erase(inventory.begin() + i);
+            break;
+        }
+    }
+    
+    Weapon* oldWeapon = equippedWeapon;
+    equippedWeapon = newWeapon;
+
+    if (oldWeapon != nullptr)
+    {
+        inventory.push_back(oldWeapon);
+        std::cout << oldWeapon->getName() << " cantaya geri kondu." << std::endl;
+    }
+
+}
+
 inline void Player::equipArmor(Armor* newArmor){
     if (newArmor == nullptr) return;
 
@@ -179,6 +200,7 @@ inline void Player::printInventory() {
 inline void Player::printEquipment() {
 
         std::cout << "-------------" << std::endl;
+        std::cout << "Weapon: " << (equippedWeapon == nullptr ? "No Weapon" : equippedWeapon->getName()) << std::endl;
         std::cout << "Armor: " << (equippedArmor == nullptr ? "No Armor" : equippedArmor->getName()) << std::endl;
         std::cout << "-------------" << std::endl;
 }

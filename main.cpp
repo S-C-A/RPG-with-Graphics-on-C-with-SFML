@@ -14,6 +14,8 @@ int main(){
     Item* wooden_sword = itemT.getItem(100);
     Item* potion = itemT.getItem(1);
     Item* armor = itemT.getItem(200);
+    Item* poison = itemT.getItem(2);
+    Item* key = itemT.getItem(300);
 
     if (wooden_sword != nullptr) {
         hero.addItem(wooden_sword);
@@ -31,8 +33,7 @@ int main(){
     current_room = mapT.getRoom(4);
 
     hero.printEquipment();
+    hero.printStats();
     hero.printInventory();
-    armor->use(&hero);
-    hero.printEquipment();
-    hero.printInventory();
+
 }
