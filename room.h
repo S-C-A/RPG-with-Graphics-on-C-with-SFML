@@ -11,13 +11,10 @@ struct Room {
     int id;                 
     std::string info;       
     
-    int n, s, e, w;         
+    int n, s, e, w; // Directions        
+    int itemID;     // Items (-1 for none)
+    int monsterID;  // Monsters (-1 for none)
 
-    // ARTIK AKTIF: Odaya ozel veriler
-    int itemID;     // Yerdeki esya ID'si (-1 ise yok)
-    int monsterID;  // Odadaki canavar ID'si (-1 ise yok)
-
-    // Constructor Guncellendi: item ve monster parametreleri eklendi
     Room(int _id = 0, std::string _info = "", int _n = -1, int _s = -1, int _e = -1, int _w = -1, int _item = -1, int _mon = -1) {
         id = _id;
         info = _info;
@@ -43,15 +40,14 @@ public:
 
         while(getline(file,line))
         {
-            // Bos satir korumasi
             if (line.empty()) continue;
 
             stringstream ss(line);
             string segment;
 
             int id, n, s, e, w;
-            int itemID = -1;    // Varsayilan yok
-            int monsterID = -1; // Varsayilan yok
+            int itemID = -1;   
+            int monsterID = -1; 
             string info;
 
             // --- PARSING ---
@@ -62,14 +58,11 @@ public:
             if (getline(ss, segment, ',')) e = stoi(segment); 
             if (getline(ss, segment, ',')) w = stoi(segment); 
 
-            // YENI KISIM: Item ve Monster ID okuma
-            // Dosyada bu degerler yazilmamissa kod -1 olarak kalir, cokmez.
-            if (getline(ss, segment, ',')) {
-                if (!segment.empty()) itemID = stoi(segment);
-            }
-            
             if (getline(ss, segment, ',')) {
                 if (!segment.empty()) monsterID = stoi(segment);
+            }
+            if (getline(ss, segment, ',')) {
+                if (!segment.empty()) itemID = stoi(segment);
             }
 
             Room newRoom(id, info, n, s, e, w, itemID, monsterID);
