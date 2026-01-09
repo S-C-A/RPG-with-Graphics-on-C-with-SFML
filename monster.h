@@ -50,13 +50,10 @@ public:
     }
 
     void takeDamage(int amount){
-        int netDamage = amount - def;
-        if (netDamage < 0) netDamage = 0;
-
-        hp -= netDamage;
+        hp -= amount;
         if (hp < 0) hp = 0;
 
-        cout << name << " " << netDamage << " hasar aldi! (Zirh: " << def << ")" << endl;
+        cout << name << " " << amount << " hasar aldi! (Zirh: " << def << ")" << endl;
     }
 
     bool isDead() const {

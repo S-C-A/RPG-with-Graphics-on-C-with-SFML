@@ -3,11 +3,12 @@
 #include <vector>
 #include <ctime>
 
+// Tum bagimliliklar
 #include "player.h"
 #include "ItemManager.h"
 #include "enemyManager.h"
 #include "room.h"
-#include "combat.h" // Combat sistemini ekledik
+#include "combat.h" 
 
 using namespace std;
 
@@ -17,107 +18,159 @@ private:
     ItemManager itemMgr;
     EnemyManager mobMgr;
     MapManager mapMgr;
-    CombatManager combatMgr; // Savas yoneticisi
+    CombatManager combatMgr;
 
     Room* currentRoom;
 
+    // --- ENVANTER MENUSU (YENI) ---
+    void manageInventory() {
+        bool inMenu = true;
+        
+        while (inMenu) {
+            cout << "\n========================================" << endl;
+            cout << "           INVENTORY MENU" << endl;
+            cout << "========================================" << endl;
+            
+            // 1. Mevcut Ekipmani Goster
+            hero.printEquipment();
+
+            // 2. Cantayi Listele
+            // Player.h'daki fonksiyonu kullaniyoruz, listeyi yazdiriyor.
+            hero.printInventory();
+
+            cout << "----------------------------------------" << endl;
+            cout << "Enter Item ID to Use/Equip (or -1 to Exit): ";
+            
+            int inputIndex;
+            cin >> inputIndex;
+
+            // Cikis Kontrolu
+            if (inputIndex == -1) {
+                inMenu = false;
+                break;
+            }
+
+            // Player.h'da printInventory 0'dan baslayarak (0,1,2...) yazdiriyor.
+            // Kullanici da buna gore girecek.
+            const auto& inv = hero.getInventory();
+
+            if (inputIndex < 0 || inputIndex >= inv.size()) {
+                cout << "Invalid selection!" << endl;
+                continue;
+            }
+
+            // Secilen esyayi alalim
+            Item* selected = inv[inputIndex];
+            
+            // --- TÜR KONTROLÜ VE EYLEM ---
+
+            // A. SILAH MI?
+            if (Weapon* w = dynamic_cast<Weapon*>(selected)) {
+                // Player.h'daki fonksiyonu cagiriyoruz.
+                // O fonksiyon esyayi cantadan silip equippedWeapon yapiyor.
+                hero.equipWeapon(w);
+            }
+            // B. ZIRH MI?
+            else if (Armor* a = dynamic_cast<Armor*>(selected)) {
+                hero.equipArmor(a);
+            }
+            // C. CONSUMABLE (IKSIR) MI?
+            else if (Consumable* c = dynamic_cast<Consumable*>(selected)) {
+                // useItem fonksiyonu iceride 'use' cagirip siliyor.
+                hero.useItem(inputIndex);
+            }
+            // D. DIGER
+            else {
+                cout << "You cannot use/equip this item directly." << endl;
+            }
+            
+            // Dongu basa doner, boylece baska esyalar da secebilirsin.
+        }
+    }
+
 public:
     Game() {
-        cout << "Game Engine Initializing..." << endl;
+        cout << "Initializing Game Engine..." << endl;
         
-        // Haritayi yukle
         mapMgr.loadMap("Rooms.txt");
-
-        // Baslangic odasi ID: 1
         currentRoom = mapMgr.getRoom(1);
         
         if (currentRoom == nullptr) {
-            cout << "ERROR: Starting room not found! (ID: 1)" << endl;
+            cout << "CRITICAL ERROR: Room 1 not found!" << endl;
         }
     }
 
-    // --- TEST VE HILE FONKSIYONU ---
-    // Bunu main.cpp icinden cagiracagiz
+    // --- TEST ICIN HILE ---
     void setupCheats() {
-        cout << "\n>>> CHEAT MODE ACTIVATED <<<" << endl;
-        
-        // 1. Master Sword Ekle (ID: 199)
-        Item* godWeapon = itemMgr.getItem(199);
-        if (godWeapon) {
-            hero.addItem(godWeapon);
-            cout << ">>> ADDED: " << godWeapon->getName() << endl;
-        }
+        cout << "\n>>> CHEAT MODE ON: Adding Master Sword & Potions... <<<" << endl;
 
-        // 2. Cantayi Iksirle Doldur (ID: 1)
-        // Ornegin 5 tane iksir verelim
-        for (int i = 0; i < 5; i++) {
+        // 1. Master Sword (ID: 199)
+        Item* godSword = itemMgr.getItem(199);
+        if (godSword) hero.addItem(godSword);
+
+        // 2. Demir Kilic (ID: 101 - Karsilastirma icin)
+        Item* ironSword = itemMgr.getItem(101);
+        if (ironSword) hero.addItem(ironSword);
+
+        // 3. Iksirler (ID: 1)
+        for(int i=0; i<3; i++) {
             Item* potion = itemMgr.getItem(1);
-            if (potion) {
-                hero.addItem(potion);
-            }
+            if(potion) hero.addItem(potion);
         }
-        cout << ">>> ADDED: 5x Health Potions" << endl;
-        cout << ">>> Inventory Ready for Testing.\n" << endl;
+        cout << ">>> Items added. Press 'i' to equip them!\n" << endl;
     }
 
-    // --- MAIN GAME LOOP ---
+    // --- OYUN DONGUSU ---
     void run() {
-        if (currentRoom == nullptr) return;
+        if (!currentRoom) return;
 
-        cout << "--- GAME STARTED ---\n" << endl;
+        cout << "--- GAME START ---\n" << endl;
         bool isRunning = true;
 
         while (isRunning) {
             
-            // --- OTOMATIK SAVAS KONTROLU ---
+            // 1. OTOMATIK SAVAS (Combat.h ile baglanti)
             if (currentRoom->monsterID != -1) {
                 Monster* enemy = mobMgr.getEnemy(currentRoom->monsterID);
                 
-                if (enemy != nullptr) {
-                    // Dusmani savas grubuna ekle
-                    vector<Monster*> battleGroup;
-                    battleGroup.push_back(enemy);
+                if (enemy) {
+                    vector<Monster*> group;
+                    group.push_back(enemy);
 
-                    // Savasi Baslat
-                    // ONEMLI: itemMgr parametresini de gonderiyoruz!
-                    bool win = combatMgr.startBattle(&hero, battleGroup, itemMgr);
+                    // CombatManager cagiriliyor (ItemManager referansi ile)
+                    bool win = combatMgr.startBattle(&hero, group, itemMgr);
 
                     if (win) {
                         cout << "\n*** VICTORY ***" << endl;
-                        
-                        // Odadan canavari sil (Temizle)
-                        currentRoom->monsterID = -1;
-                        
-                        // Not: Ganimet (Loot) islemini CombatManager halletti.
-                    } 
-                    else {
+                        currentRoom->monsterID = -1; // Oda temizlendi
+                    } else {
                         cout << "\n*** GAME OVER ***" << endl;
-                        isRunning = false; 
-                        continue; 
+                        isRunning = false;
+                        continue;
                     }
                 }
             }
 
-            // 1. ODA BILGISI
+            // 2. ODA BILGISI
             cout << "\n--------------------------------" << endl;
             cout << "LOCATION: " << currentRoom->info << endl;
             
-            // Yerde esya var mi?
             if (currentRoom->itemID != -1) {
-                Item* tempItem = itemMgr.getItem(currentRoom->itemID);
-                if (tempItem) {
-                    cout << "GROUND: There is a [" << tempItem->getName() << "] here." << endl;
-                    delete tempItem; 
+                Item* item = itemMgr.getItem(currentRoom->itemID);
+                if (item) {
+                    cout << "GROUND: You see a [" << item->getName() << "] here." << endl;
+                    delete item;
                 }
             }
             cout << "--------------------------------" << endl;
 
-            // 2. KOMUT AL
+            // 3. MENU
+            hero.printStats(); // HP ve Statlari gorelim
             cout << "Action (w,a,s,d: Move | i: Inventory | e: Interact | q: Quit): ";
+            
             char input;
             cin >> input;
 
-            // 3. KOMUTU ISLE
             switch (input) {
                 case 'w': move(currentRoom->n); break;
                 case 's': move(currentRoom->s); break;
@@ -125,7 +178,7 @@ public:
                 case 'a': move(currentRoom->w); break;
                 
                 case 'i': 
-                    hero.printInventory(); 
+                    manageInventory(); // YENI FONKSİYON
                     break;
                 
                 case 'e':
@@ -133,8 +186,7 @@ public:
                     break;
 
                 case 'q': 
-                    cout << "Exiting game..." << endl;
-                    isRunning = false;
+                    isRunning = false; 
                     break;
 
                 default: cout << "Invalid command." << endl;
@@ -142,39 +194,32 @@ public:
         }
     }
 
-    // --- YARDIMCI FONKSIYONLAR ---
-
-    void move(int roomID) {
-        if (roomID == -1) {
-            cout << "You can't go that way (Wall)." << endl;
-        } else {
-            Room* nextRoom = mapMgr.getRoom(roomID);
-            if (nextRoom != nullptr) {
-                currentRoom = nextRoom;
-                cout << "Walking..." << endl;
-            } else {
-                cout << "ERROR: Room not found!" << endl;
+    // --- YARDIMCI METOTLAR ---
+    void move(int id) {
+        if (id == -1) cout << "Blocked." << endl;
+        else {
+            Room* next = mapMgr.getRoom(id);
+            if (next) {
+                currentRoom = next;
+                cout << "Moving..." << endl;
             }
         }
     }
 
-    // Sadece yerdeki esyalari almak icin kullaniliyor artik
     void interactWithRoom() {
         if (currentRoom->itemID != -1) {
             Item* item = itemMgr.getItem(currentRoom->itemID);
             if (item) {
-                cout << ">> Picking up " << item->getName() << "..." << endl;
-                
                 if (hero.addItem(item)) {
-                    currentRoom->itemID = -1; 
-                    cout << "You picked up the " << item->getName() << "." << endl;
+                    cout << "Picked up " << item->getName() << endl;
+                    currentRoom->itemID = -1;
                 } else {
-                    cout << "Inventory full! Could not pick up item." << endl;
-                    delete item; 
+                    cout << "Inventory full!" << endl;
+                    delete item;
                 }
             }
         } else {
-            cout << "Nothing to pick up here." << endl;
+            cout << "Nothing here." << endl;
         }
     }
 };

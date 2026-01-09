@@ -9,7 +9,7 @@ class BanditSlasher : public Monster {
 public:
     BanditSlasher(int id) 
         : Monster(id, "Bandit Slasher", "Tehlikeli bir haydut.", 24, 5, 3, 15) 
-    {}
+    {loot.push_back(1);}
 
     Monster* clone() const override {
         return new BanditSlasher(*this);
