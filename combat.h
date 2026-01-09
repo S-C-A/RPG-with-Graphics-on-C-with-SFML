@@ -3,12 +3,79 @@
 #include <vector>
 #include "player.h"
 #include "monster.h"
+#include "ItemManager.h"
 
 using namespace std;
 
 class CombatManager {
+private:
+    // --- (LOOT HANDLING) ---
+    void collectLoot(Player* hero, Monster* mob, ItemManager& itemMgr) {
+        
+        // (GOLD)
+        if (mob->getGold() > 0) {
+            hero->goldChange(mob->getGold());
+            cout << ">>> Loot: Found " << mob->getGold() << " gold!" << endl;
+        }
+
+        // (ITEMS)
+        const vector<int>& drops = mob->getLootList();
+
+        for (int itemID : drops) {
+            Item* newItem = itemMgr.getItem(itemID);
+            
+            if (newItem == nullptr) continue;
+
+            cout << ">>> Loot Drop: [" << newItem->getName() << "]" << endl;
+
+            // A. FREE INVENTORY
+            if (hero->addItem(newItem)) {
+                cout << ">>> Added " << newItem->getName() << " to inventory." << endl;
+                continue;
+            }
+
+            // B. FULL INVENTORY
+            char choice;
+            cout << "Inventory full! Swap " << newItem->getName() << " with something? (y/n): ";
+            cin >> choice;
+
+            if (choice == 'y' || choice == 'Y') {
+                bool itemSwapped = false;
+                
+                while (!itemSwapped) {
+                    hero->printInventory(); 
+                    
+                    int slotToDelete;
+                    cout << "Select item number to discard (or -1 to cancel): ";
+                    cin >> slotToDelete;
+
+                    if (slotToDelete == -1) {
+                        cout << newItem->getName() << " was left on the ground." << endl;
+                        delete newItem;
+                        break; 
+                    }
+
+                    if (hero->removeItem(slotToDelete - 1)) {
+                        cout << "Item discarded." << endl;
+                        
+                        hero->addItem(newItem); 
+                        cout << ">>> You picked up " << newItem->getName() << "!" << endl;
+                        
+                        itemSwapped = true;
+                    }
+                    else {
+                        cout << "Invalid selection. Try again." << endl;
+                    }
+                }
+            } 
+            else {
+                cout << newItem->getName() << " was left behind." << endl;
+                delete newItem; 
+            }
+        }
+    }
 public:
-    bool startBattle(Player* hero, std::vector<Monster*>& enemies) {
+    bool startBattle(Player* hero, std::vector<Monster*>& enemies, ItemManager& itemMgr) {
         
         for (auto n : enemies) cout << n->getName() << " blocks your path!";    
         cout << "\n";
@@ -56,6 +123,7 @@ public:
                         
                         if (enemies[target-1]->isDead()) {
                             cout << enemies[target-1]->getName() << " defeated!" << endl;
+                            collectLoot(hero, enemies[target-1], itemMgr);
 
                             delete enemies[target-1]; 
                             enemies.erase(enemies.begin() + (target - 1));

@@ -1,19 +1,24 @@
 #include <iostream>
-#include "player.h"
-#include "room.h"
-#include "item.h"
-#include "ItemManager.h"
-#include "condition.h"
-#include "game.h"
+#include <ctime>
+#include "Game.h"
 
-int main(){
+using namespace std;
 
-    Player hero;
-    MapManager mapT;
-    ItemManager itemT;
-    Room* current_room;
-    Game rpg;
+int main() {
+    // Rastgelelik icin
+    srand(time(NULL));
 
+    // Oyun Motorunu Olustur
+    Game rpg; 
+
+    // --- TEST ASAMASI ---
+    // Oyuncuya Master Sword ve Iksirleri ver
+    rpg.setupCheats(); 
+    // --------------------
+
+    // Oyunu Baslat
     rpg.run();
 
+    system("pause"); 
+    return 0;
 }

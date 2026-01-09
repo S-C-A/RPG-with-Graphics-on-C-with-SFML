@@ -33,6 +33,8 @@ public:
 
         itemDB[101] = new Weapon(101, "Demir Kilic", "Keskin ve agir", 12);
 
+        itemDB[199] = new Weapon(199, "Master Sword", "Bestowed by gods", 999);
+
         // --- ARMORS ---
         itemDB[200] = new Armor(200, "Deri Zirh", "Hafif koruma", 3);
         
