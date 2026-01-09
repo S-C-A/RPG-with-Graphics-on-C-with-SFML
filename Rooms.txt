@@ -1,3 +1,13 @@
-1,Zindan Girisi,2,-1,-1,-1,-1,-1
-2,Karanlik Koridor,3,1,-1,-1,5,1
-3,Hazine Odasi,-1,2,-1,-1,-1,101
+// Format: ID,Info,N,S,E,W,ItemID,MonsterID,MonsterID...
+
+// 1. ODA: Giris (Kuzey'de 2. oda var). Item: Iksir (1). Canavar: Yok.
+1,Nemli Giris Odasi,2,-1,-1,-1,1
+
+// 2. ODA: Koridor (Kuzey'de 3, Guney'de 1). Item: Yok (-1). Canavar: 1 Bandit (10).
+2,Karanlik Koridor,3,1,-1,-1,-1,10
+
+// 3. ODA: Meydan (Kuzey'de 4, Guney'de 2). Item: Yok. Canavar: 2 Bandit (10, 10).
+3,Zindan Meydani,4,2,-1,-1,-1,10,10
+
+// 4. ODA: Hazine (Guney'de 3). Item: Master Sword (199). Canavar: Yok.
+4,Hazine Odasi,-1,3,-1,-1,199

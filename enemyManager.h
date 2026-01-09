@@ -20,7 +20,7 @@ public:
     }
 
     void initEnemies(){
-        enemyDB[5] = new BanditSlasher(5);
+        enemyDB[10] = new BanditSlasher(10);
     }
 
     Monster* getEnemy(int id){
