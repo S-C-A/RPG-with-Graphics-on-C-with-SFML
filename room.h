@@ -5,7 +5,6 @@
 #include <iostream>
 #include <fstream>  
 #include <sstream>
-#include <algorithm> // Temizleme islemleri icin gerekli
 
 using namespace std;
 
@@ -14,7 +13,7 @@ struct Room {
     std::string info;       
     int n, s, e, w;        
     int itemID;     
-    std::vector<int> monsterID; 
+    std::vector<int> monsterID; // Coklu dusman destegi
 
     Room(int _id = 0, std::string _info = "", int _n = -1, int _s = -1, int _e = -1, int _w = -1, int _item = -1) {
         id = _id;
@@ -28,28 +27,18 @@ class MapManager {
 private:
     std::map<int, Room> rooms; 
 
-    // YARDIMCI: String icindeki bosluklari ve satir sonu karakterlerini temizler
-    string cleanString(string input) {
-        // Gereksiz karakterleri sil
-        input.erase(remove(input.begin(), input.end(), '\r'), input.end()); // Windows satir sonu
-        input.erase(remove(input.begin(), input.end(), '\n'), input.end()); // Linux satir sonu
-        input.erase(remove(input.begin(), input.end(), ' '), input.end());  // Bosluklar
-        return input;
-    }
-
 public:
     void loadMap(string filename) {
         ifstream file(filename);
         if (!file.is_open()) {
-            cout << "!!! HATA: " << filename << " dosyasi bulunamadi!" << endl;
+            cout << "HATA: " << filename << " acilamadi." << endl;
             return;
         }
     
         string line;
-        cout << "\n--- HARITA OKUNUYOR ---" << endl;
-
         while(getline(file,line))
         {
+            // Yorum satirlarini ve bos satirlari atla
             if (line.empty() || line[0] == '/') continue;
 
             stringstream ss(line);
@@ -57,56 +46,42 @@ public:
 
             int id = 0, n = -1, s = -1, e = -1, w = -1;
             int itemID = -1;   
-            string info = "Bilinmiyor";
+            string info;
 
-            try {
-                // 1. Standart Veriler
-                if (getline(ss, segment, ',')) id = stoi(cleanString(segment));
-                else continue;
+            // --- 1. SABIT VERILERI OKU ---
+            // Format: ID, Info, N, S, E, W, ItemID
+            
+            if (getline(ss, segment, ',')) id = stoi(segment);
+            else continue; 
 
-                if (getline(ss, segment, ',')) info = segment; // Info'yu temizlemiyoruz, bosluklu olabilir
-
-                if (getline(ss, segment, ',')) n = stoi(cleanString(segment)); 
-                if (getline(ss, segment, ',')) s = stoi(cleanString(segment)); 
-                if (getline(ss, segment, ',')) e = stoi(cleanString(segment)); 
-                if (getline(ss, segment, ',')) w = stoi(cleanString(segment)); 
-                
-                if (getline(ss, segment, ',')) {
-                    string cleanSeg = cleanString(segment);
-                    if (!cleanSeg.empty()) itemID = stoi(cleanSeg);
-                }
-
-                Room newRoom(id, info, n, s, e, w, itemID);
-
-                // 2. Canavarlar (HATA DUZELTICI MOD)
-                // Satirin geri kalanini komple oku
-                while (getline(ss, segment, ',')) {
-                    string cleanSeg = cleanString(segment);
-                    
-                    if (cleanSeg.empty()) continue;
-                    
-                    try {
-                        int mID = stoi(cleanSeg);
-                        if (mID != -1) {
-                            newRoom.monsterID.push_back(mID);
-                        }
-                    } catch (...) { 
-                        // Sayi degilse atla
-                    }
-                }
-                
-                // KONTROL MESAJI (Canavarlar yüklendi mi?)
-                cout << "Oda " << id << " yuklendi. Canavar Sayisi: " << newRoom.monsterID.size() << endl;
-
-                rooms[id] = newRoom;
-
-            } catch (...) {
-                cout << "!!! Satir okuma hatasi: " << line << endl;
+            if (getline(ss, segment, ',')) info = segment;
+            
+            if (getline(ss, segment, ',')) n = stoi(segment); 
+            if (getline(ss, segment, ',')) s = stoi(segment); 
+            if (getline(ss, segment, ',')) e = stoi(segment); 
+            if (getline(ss, segment, ',')) w = stoi(segment); 
+            
+            if (getline(ss, segment, ',')) {
+                 if (!segment.empty()) itemID = stoi(segment);
             }
+
+            Room newRoom(id, info, n, s, e, w, itemID);
+
+            // --- 2. DINAMIK CANAVAR OKUMA ---
+            // Satirin geri kalanini oku ve listeye ekle
+            while (getline(ss, segment, ',')) {
+                if (segment.empty()) continue;
+                try {
+                    int mID = stoi(segment);
+                    if (mID != -1) newRoom.monsterID.push_back(mID);
+                } catch (...) { continue; }
+            }
+
+            rooms[id] = newRoom;
         }
         
         file.close();
-        cout << "--- YUKLEME TAMAM ---\n" << endl;
+        cout << "Harita yuklendi. Oda sayisi: " << rooms.size() << endl;
     }
 
     Room* getRoom(int id) {
