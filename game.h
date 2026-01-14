@@ -83,6 +83,9 @@ private:
                     }
                     break; // Donguden cik
                 }
+                else if (node->actionType == EVENT_OPEN_SHOP) {
+                    openShopMenu(npc);
+                }
 
                 // Olay tek seferlik olsun diye actionType'i sifirlayabiliriz (Opsiyonel)
                 // node->actionType = EVENT_NONE; 
@@ -116,6 +119,70 @@ private:
         cout << "----------------------------------------\n" << endl;
     }
 
+    // --- DUKKAN SISTEMI ---
+    void openShopMenu(NPC* merchant) {
+        const vector<ShopItem>& items = merchant->getShopInventory();
+        
+        if (items.empty()) {
+            cout << "Merchant: I have nothing to sell right now." << endl;
+            return;
+        }
+
+        bool shopping = true;
+        while (shopping) {
+            cout << "\n=== " << merchant->getName() << "'s SHOP ===" << endl;
+            cout << "Your Gold: " << hero.getGold() << endl;
+            cout << "---------------------------" << endl;
+
+            for (size_t i = 0; i < items.size(); i++) {
+                // Item ismini manager'dan cekiyoruz (Gecici bir pointer ile)
+                Item* temp = itemMgr.getItem(items[i].itemID);
+                if (temp) {
+                    cout << i + 1 << ". " << temp->getName() 
+                         << " (" << items[i].price << " G)" << endl;
+                    delete temp; // Sadece isim ogrenmek icin yarattik, siliyoruz
+                }
+            }
+            cout << "0. Exit Shop" << endl;
+            cout << "---------------------------" << endl;
+            cout << "Buy Item #: ";
+
+            int choice;
+            cin >> choice;
+
+            if (choice == 0) {
+                shopping = false;
+                cout << "Merchant: Come back soon!" << endl;
+            }
+            else if (choice > 0 && choice <= items.size()) {
+                // Secilen urunu al
+                ShopItem selected = items[choice - 1];
+                
+                // Para yetiyor mu?
+                if (hero.getGold() > selected.price) {
+                    // Item'i gercekten olustur ve envantere ver
+                    Item* newItem = itemMgr.getItem(selected.itemID);
+                    if (hero.addItem(newItem)) {
+                        hero.goldChange(-selected.price);
+                        cout << ">>> PURCHASE SUCCESSFUL! <<<" << endl;
+                    } else {
+                        // Envanter doluysa parayi iade et ve itemi sil
+                        cout << ">>> Inventory Full! Money refunded. <<<" << endl;
+                        hero.goldChange(selected.price);
+                        delete newItem;
+                    }
+                }
+                else
+                {
+                    cout << "Not enough gold!";
+                }
+                
+            } else {
+                cout << "Invalid selection." << endl;
+            }
+        }
+    }
+
     // --- ENVANTER MENUSU ---
     void manageInventory() {
         bool inMenu = true;
@@ -138,18 +205,25 @@ private:
     }
 
 public:
-    Game() {
+Game() {
         cout << "Initializing Game Engine..." << endl;
         
         mapMgr.loadMap("Rooms.txt");
-        currentRoom = mapMgr.getRoom(1);
+        currentRoom = mapMgr.getRoom(1); // Oyun 1. Odada baslar
         
         if (!currentRoom) cout << "CRITICAL ERROR: Room 1 not found!" << endl;
 
-        // --- MANUEL TEST AYARI ---
-        // Room 4'e (Hazine Odasi) NPC ID 50 (Old Sage) ekliyoruz.
+        // --- TEST 1: ODA 1'E MERHCANT EKLE (HEMEN TEST ETMEK ICIN) ---
+        if (currentRoom) {
+            // ID 51: Mysterious Merchant
+            currentRoom->npcID.push_back(51); 
+            cout << "DEBUG: Mysterious Merchant (ID 51) added to Room 1." << endl;
+        }
+
+        // --- TEST 2: ODA 4'E OLD SAGE EKLE (ESKI TEST DE DURSUN) ---
         Room* r4 = mapMgr.getRoom(4);
         if (r4) {
+            // ID 50: Old Sage
             r4->npcID.push_back(50); 
             cout << "DEBUG: Old Sage (ID 50) added to Room 4 manually." << endl;
         }

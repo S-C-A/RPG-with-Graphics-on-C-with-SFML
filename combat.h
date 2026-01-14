@@ -18,6 +18,12 @@ private:
             cout << ">>> Loot: Found " << mob->getGold() << " gold!" << endl;
         }
 
+        // EXP
+        if (mob->getExp() > 0) {
+            hero->addExp(mob->getExp());
+            cout << ">>> Gained " << mob->getExp() << " experience!" << endl;
+        }
+
         // (ITEMS)
         const vector<int>& drops = mob->getLootList();
 

@@ -164,9 +164,27 @@ public:
                     type = EVENT_START_COMBAT;
                     val = param;
                 }
+                // 5. SHOP ACMA
+                else if (actionName == "OPEN_SHOP") {
+                    type = EVENT_OPEN_SHOP;
+                    // Parametreye gerek yok ama format bozulmasin diye 0 okunabilir
+                }
+                
 
                 // Node'u guncelle
                 currentNPC->setNodeAction(currentNodeID, rootChange, type, val);
+            }
+            // ==========================================
+            // DURUM 5: DUKKAN STOKLARI (Etiket: SHOP_ITEM)
+            // Ornek Satir: SHOP_ITEM 1 50 (ID 1'i 50 altına sat)
+            // ==========================================
+            else if (tag == "SHOP_ITEM") {
+                if (currentNPC == nullptr) continue;
+
+                int itemID, price;
+                ss >> itemID >> price;
+
+                currentNPC->addShopItem(itemID, price);
             }
         }
 

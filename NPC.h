@@ -11,7 +11,14 @@ enum EventType {
     EVENT_GIVE_ITEM,    // Oyuncuya esya ver (Value = Item ID)
     EVENT_TAKE_ITEM,    // Oyuncudan esya al (Value = Item ID) - Ilerde eklenebilir
     EVENT_HEAL,         // Can doldur (Value = HP miktari)
-    EVENT_START_COMBAT  // Savas baslat (Value = Monster ID)
+    EVENT_START_COMBAT,  // Savas baslat (Value = Monster ID)
+    EVENT_OPEN_SHOP
+};
+
+struct ShopItem {
+    int itemID;
+    int price;
+    ShopItem(int id, int p) : itemID(id), price(p) {}
 };
 
 // Oyuncunun secebilecegi cevap secenegi
@@ -42,6 +49,7 @@ private:
     string name;        // NPC'nin Adi (Yasli Bilge)
     bool metBefore;     // Daha once karsilastik mi? (Evet/Hayir)
     int currentRootNode; // YENI: Konusmanin baslayacagi varsayilan ID
+    vector<ShopItem> shopInventory; // YENI: Bu NPC'nin sattigi seyler
     
     // Anahtar (Key): Node ID -> Deger (Value): DialogueNode
     map<int, DialogueNode> dialogueTree; 
@@ -59,11 +67,18 @@ public:
     bool hasMet() const { return metBefore; }
     void setMet(bool status) { metBefore = status; }
     int getRootNode() const { return currentRootNode; }
+    const vector<ShopItem>& getShopInventory() const {
+        return shopInventory;
+    }
    
     void setRootNode(int newRoot) { 
         currentRootNode = newRoot; 
         // Root degistigi an tanisma durumu da guncellenmis sayilir
         metBefore = true; 
+    }
+
+    void addShopItem(int id, int price) {
+        shopInventory.push_back(ShopItem(id, price));
     }
 
     // --- DIYALOG YONETIM FONKSIYONLARI ---
