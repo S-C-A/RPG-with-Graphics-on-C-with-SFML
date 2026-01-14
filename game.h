@@ -169,23 +169,37 @@ private:
         }
     }
 
-    // --- ENVANTER MENUSU ---
+// --- ENVANTER MENUSU (GUNCEL) ---
     void manageInventory() {
         bool inMenu = true;
         while (inMenu) {
             cout << "\n--- INVENTORY ---" << endl;
             hero.printEquipment();
             hero.printInventory();
-            cout << "Enter Item ID to Use/Equip (-1 to Exit): ";
-            int inputIndex; cin >> inputIndex;
-            if (inputIndex == -1) break;
+            
+            // DEGISTI: Soru metni
+            cout << "Enter Item # to Use/Equip (0 to Exit): ";
+            int input; 
+            cin >> input;
+
+            // DEGISTI: Cikis kosulu artik 0
+            if (input == 0) break;
+
+            // DEGISTI: Kullanici 1 dedi, ama bilgisayar icin o 0. eleman.
+            // Bu yuzden 1 cikariyoruz.
+            int realIndex = input - 1;
 
             const auto& inv = hero.getInventory();
-            if (inputIndex >= 0 && inputIndex < inv.size()) {
-                Item* selected = inv[inputIndex];
+            
+            // DEGISTI: Artik "realIndex" kontrol ediliyor
+            if (realIndex >= 0 && realIndex < inv.size()) {
+                Item* selected = inv[realIndex];
+                
                 if (Weapon* w = dynamic_cast<Weapon*>(selected)) hero.equipWeapon(w);
                 else if (Armor* a = dynamic_cast<Armor*>(selected)) hero.equipArmor(a);
-                else if (Consumable* c = dynamic_cast<Consumable*>(selected)) hero.useItem(inputIndex);
+                else if (Consumable* c = dynamic_cast<Consumable*>(selected)) hero.useItem(realIndex);
+            } else {
+                cout << "Invalid selection." << endl;
             }
         }
     }

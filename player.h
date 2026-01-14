@@ -317,7 +317,7 @@ inline void Player::printInventory() {
     }
 
     for (size_t i = 0; i < inventory.size(); i++) {
-        std::cout << "[" << i << "] " << inventory[i]->getName() << std::endl;
+        std::cout << "[" << i+1 << "] " << inventory[i]->getName() << std::endl;
     }
     std::cout << "----------------------" << std::endl;
 }
