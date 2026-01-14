@@ -14,6 +14,7 @@ struct Room {
     int n, s, e, w;        
     int itemID;     
     std::vector<int> monsterID; // Coklu dusman destegi
+    std::vector<int> npcID;
 
     Room(int _id = 0, std::string _info = "", int _n = -1, int _s = -1, int _e = -1, int _w = -1, int _item = -1) {
         id = _id;

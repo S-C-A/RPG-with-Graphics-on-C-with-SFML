@@ -6,6 +6,14 @@
 
 using namespace std;
 
+enum EventType {
+    EVENT_NONE,         // Hicbir sey yapma
+    EVENT_GIVE_ITEM,    // Oyuncuya esya ver (Value = Item ID)
+    EVENT_TAKE_ITEM,    // Oyuncudan esya al (Value = Item ID) - Ilerde eklenebilir
+    EVENT_HEAL,         // Can doldur (Value = HP miktari)
+    EVENT_START_COMBAT  // Savas baslat (Value = Monster ID)
+};
+
 // Oyuncunun secebilecegi cevap secenegi
 struct DialogueOption {
     string text;     // Ekranda gorunecek yazi: "Nasılsın?"
@@ -19,8 +27,13 @@ struct DialogueNode {
     int id;
     string npcText; // NPC'nin soyledigi: "Merhaba yabanci."
     vector<DialogueOption> options; // Oyuncunun secebilecegi cevaplar listesi
+    
+    int changeRootTo;       // Diyalog akisi degisimi (Eski SET_ROOT)
+    EventType actionType;   // Oyun dunyasi olayi (Orn: GIVE_ITEM)
+    int actionValue;        // Olayin parametresi (Orn: Item ID 1)
 
-    DialogueNode(int _id = 0, string _text = "") : id(_id), npcText(_text) {}
+    DialogueNode(int _id = 0, string _text = "") 
+        : id(_id), npcText(_text), changeRootTo(-1) {} // Varsayilan -1 (Degistirme)
 };
 
 class NPC {
@@ -28,6 +41,7 @@ private:
     int id;             // NPC'nin numarasi (50, 51 vb.)
     string name;        // NPC'nin Adi (Yasli Bilge)
     bool metBefore;     // Daha once karsilastik mi? (Evet/Hayir)
+    int currentRootNode; // YENI: Konusmanin baslayacagi varsayilan ID
     
     // Anahtar (Key): Node ID -> Deger (Value): DialogueNode
     map<int, DialogueNode> dialogueTree; 
@@ -36,6 +50,7 @@ public:
     // --- (Constructor) ---
     NPC(int _id, string _name) : id(_id), name(_name) {
         metBefore = false;
+        currentRootNode = 0;
     }
 
     // --- GETTER / SETTER ---
@@ -43,7 +58,13 @@ public:
     int getID() const { return id; }
     bool hasMet() const { return metBefore; }
     void setMet(bool status) { metBefore = status; }
-
+    int getRootNode() const { return currentRootNode; }
+   
+    void setRootNode(int newRoot) { 
+        currentRootNode = newRoot; 
+        // Root degistigi an tanisma durumu da guncellenmis sayilir
+        metBefore = true; 
+    }
 
     // --- DIYALOG YONETIM FONKSIYONLARI ---
 
@@ -63,6 +84,19 @@ public:
         }
     }
 
+    void setNodeAction(int nodeID, int rootChange, EventType type, int val) {
+        if (dialogueTree.find(nodeID) != dialogueTree.end()) {
+            // Eger -1 degilse guncelle
+            if (rootChange != -1) dialogueTree[nodeID].changeRootTo = rootChange;
+            
+            // Event varsa guncelle
+            if (type != EVENT_NONE) {
+                dialogueTree[nodeID].actionType = type;
+                dialogueTree[nodeID].actionValue = val;
+            }
+        }
+    }
+
     // 3. Oyun sirasinda istenilen cumleyi getirir
     // Game.h icinde: npc->getDialogue(0) dedigimizde ilk konusmayi dondurur.
     DialogueNode* getDialogue(int nodeID) {
@@ -70,5 +104,11 @@ public:
             return &dialogueTree[nodeID];
         }
         return nullptr; // Eger boyle bir konusma yoksa bos doner
+    }
+
+    void setNodeAction(int nodeID, int newRoot) {
+        if (dialogueTree.find(nodeID) != dialogueTree.end()) {
+            dialogueTree[nodeID].changeRootTo = newRoot;
+        }
     }
 };

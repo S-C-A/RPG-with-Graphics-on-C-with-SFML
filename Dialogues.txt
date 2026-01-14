@@ -1,0 +1,34 @@
+// Format:
+// NPC ID Name
+// NODE ID Text...
+// CHOICE TargetID : Option Text...
+// ACTION SET_ROOT NewID (Optional)
+
+// --- OLD SAGE (ID 50) ---
+NPC 50 Old_Sage
+
+// --- ILK KARSILASMA (ROOT 0) ---
+NODE 0 Greetings! I give potions only to those who listen to my story. Will you listen?
+CHOICE 1 : Yes, tell me.
+CHOICE 2 : No, just give me the potion!
+CHOICE -1 : I have to go.
+
+// Hikayeyi dinlemeyi kabul ettin
+NODE 1 Long ago, dragons ruled these lands... (He talks for hours).
+CHOICE 3 : That was amazing. Can I have the potion now?
+
+// Hikayeyi dinlemedin (Root degismez, bir dahakine yine Node 0'dan baslar)
+NODE 2 I cannot give you the potion if you don't listen. Come back when you have patience.
+// Secenek yok, konusma biter. Root hala 0.
+
+// Iksiri verdigi an:
+NODE 3 You have patience. Here, take this Healing Potion.
+ACTION GIVE_ITEM 1   <-- ID 1 (Potion) verilecek
+ACTION SET_ROOT 10   <-- Hafiza guncellenecek
+
+// --- IKINCI KARSILASMA (ROOT 10) ---
+NODE 10 Hello again, my patient friend. Do you need more advice?
+CHOICE 11 : Where is the treasure?
+CHOICE -1 : Just passing by.
+
+NODE 11 It is hidden in Room 4. Be careful.
