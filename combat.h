@@ -83,7 +83,7 @@ private:
 public:
     bool startBattle(Player* hero, std::vector<Monster*>& enemies, ItemManager& itemMgr) {
         
-        for (auto n : enemies) cout << n->getName() << " blocks your path!";    
+        for (auto n : enemies) cout << n->getName() << " blocks your path!" << endl;    
         cout << "\n";
         
         bool isBattleOver = false;
