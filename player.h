@@ -62,6 +62,9 @@ public:
     int getGold() { return gold; }
     int getAtk();
     int getDef();
+    std::string getWeaponName();
+    std::string getArmorName();
+    
 
     void addStatus(StatusEffect effect){
         statusActive.push_back(effect);
@@ -246,6 +249,20 @@ inline void Player::useItem(int index){
         delete itemToUse;
         inventory.erase(inventory.begin() + index);
     }
+}
+
+inline std::string Player::getWeaponName() {
+    if (equippedWeapon != nullptr) {
+        return equippedWeapon->getName();
+    }
+    return "None";
+}
+
+inline std::string Player::getArmorName() {
+    if (equippedArmor != nullptr) {
+        return equippedArmor->getName();
+    }
+    return "None";
 }
 
 inline void Player::equipWeapon(Weapon* newWeapon){
