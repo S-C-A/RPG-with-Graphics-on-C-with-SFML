@@ -5,6 +5,7 @@
 // --- RENK AYARI ---
 const sf::Color BORDEAUX_COLOR = sf::Color(110, 0, 0); 
 
+// --- DUSMAN YAPISI ---
 struct EnemyTarget {
     sf::RectangleShape shape;
     std::string id;
@@ -29,6 +30,7 @@ struct EnemyTarget {
     }
 };
 
+// --- DIYALOG SECENEK YAPISI ---
 struct DialogueOption {
     sf::Text text;
     std::string id;
@@ -42,44 +44,95 @@ struct DialogueOption {
     bool isHovered(sf::Vector2f mousePos) { return text.getGlobalBounds().contains(mousePos); }
 };
 
+// --- BUTON YAPISI (YUMUSATILMIS EFEKT) ---
 struct Button {
-    sf::RectangleShape shape;
+    sf::Sprite sprite; 
+    sf::Text label;    
     std::string id;
-    Button(std::string _id, sf::Vector2f size, sf::Vector2f position, sf::Color color) {
+    sf::Vector2f baseScale; 
+
+    Button(std::string _id, std::string _labelText, const sf::Texture& texture, sf::Font& font, sf::Vector2f position, sf::Vector2f targetSize) 
+        : sprite(texture), label(font) 
+    {
         id = _id;
-        shape.setSize(size);
-        shape.setPosition(position);
-        shape.setFillColor(color);
-        shape.setOutlineThickness(-1.f); 
-        shape.setOutlineColor(sf::Color::Black);
+
+        // 1. ORIGIN AYARI
+        sf::Vector2u texSize = texture.getSize();
+        // SFML 3: Float donusumu ile
+        sprite.setOrigin({static_cast<float>(texSize.x) / 2.f, static_cast<float>(texSize.y) / 2.f});
+
+        // 2. POZISYON AYARI
+        sprite.setPosition({position.x + targetSize.x / 2.f, position.y + targetSize.y / 2.f});
+
+        // 3. OLCEKLEME
+        float scaleX = targetSize.x / static_cast<float>(texSize.x);
+        float scaleY = targetSize.y / static_cast<float>(texSize.y);
+        baseScale = {scaleX, scaleY}; 
+        sprite.setScale(baseScale);
+
+        // 4. YAZI AYARLARI
+        label.setString(_labelText);
+        label.setCharacterSize(14); 
+        label.setFillColor(BORDEAUX_COLOR);
+        
+        if (!_labelText.empty()) {
+            sf::FloatRect textBounds = label.getLocalBounds();
+            label.setOrigin({
+                textBounds.position.x + textBounds.size.x / 2.0f, 
+                textBounds.position.y + textBounds.size.y / 2.0f
+            });
+            label.setPosition(sprite.getPosition());
+        }
     }
-    bool isClicked(sf::Vector2i mousePos) {
-        return shape.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos));
+
+    // --- BURADA DEGISIKLIK YAPILDI ---
+    void update(sf::Vector2f mousePos, bool isMousePressed) {
+        if (sprite.getGlobalBounds().contains(mousePos)) {
+            if (isMousePressed) {
+                // TIKLAYINCA: %85 Boyut (Daha tok bir basma hissi)
+                sprite.setScale({baseScale.x * 0.85f, baseScale.y * 0.85f});
+            } else {
+                // HOVER: %95 Boyut (Sadece %5 kuculme - Cok daha stabil)
+                sprite.setScale({baseScale.x * 0.95f, baseScale.y * 0.95f});
+            }
+        } else {
+            // NORMAL: %100 Boyut
+            sprite.setScale(baseScale);
+        }
+    }
+
+    bool isClicked(sf::Vector2f mousePos) {
+        return sprite.getGlobalBounds().contains(mousePos);
+    }
+
+    void draw(sf::RenderWindow& window) {
+        window.draw(sprite);
+        if (label.getString().getSize() > 0) {
+            window.draw(label);
+        }
     }
 };
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode({960, 540}), "RPG - Statbox Added");
+    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Final Interface (Soft FX)", sf::State::Fullscreen);
     window.setFramerateLimit(60);
     window.setMouseCursorVisible(true);
+
+    sf::View gameView(sf::FloatRect({0.f, 0.f}, {960.f, 540.f}));
+    window.setView(gameView);
 
     sf::Font font;
     if (!font.openFromFile("font.ttf")) return -1;
 
     // --- TEXTURE YUKLEME ---
+    sf::Texture dialogTexture; if (!dialogTexture.loadFromFile("textures/Textbox[Final].png")) return -1;
+    sf::Texture statTexture; if (!statTexture.loadFromFile("textures/Statbox[Final].png")) return -1;
+    sf::Texture buttonTexture; if (!buttonTexture.loadFromFile("textures/Button[Final].png")) return -1;
+    sf::Texture inventoryTexture; if (!inventoryTexture.loadFromFile("textures/Inventory[Final].png")) return -1;
     
-    // 1. Diyalog Kutusu
-    sf::Texture dialogTexture;
-    if (!dialogTexture.loadFromFile("textures/Textbox[Final].png")) {
-        std::cerr << "HATA: Textbox resmi bulunamadi!" << std::endl;
-        return -1;
-    }
-
-    // 2. Stat Kutusu (YENI)
-    sf::Texture statTexture;
-    if (!statTexture.loadFromFile("textures/Statbox[Final].png")) {
-        std::cerr << "HATA: Statbox resmi bulunamadi!" << std::endl;
-        return -1;
+    sf::Texture mapTexture;
+    if (!mapTexture.loadFromFile("textures/Map[Final].png")) {
+        mapTexture = inventoryTexture; 
     }
 
     // --- LAYOUT ---
@@ -91,30 +144,22 @@ int main() {
     float splitY = 380.f;
 
     // --- PANELLER ---
-    
-    // A) POV (Kirmizi Alan) - Hala Shape (Yakinda buna da resim cizersin)
     sf::RectangleShape redPanel({leftWidth, splitY});
     redPanel.setPosition({gameStartX, 0.f}); 
     redPanel.setFillColor(sf::Color(20, 10, 10)); 
 
-    // B) STAT KUTUSU (SPRITE) - Eski GreenPanel yerine gecti
     sf::Sprite statSprite(statTexture);
-    statSprite.setPosition({gameStartX + leftWidth, 0.f}); // Sag ust koseye yerlestir
-
-    // Olcekleme: (Hedef Genislik / Resim Genisligi)
+    statSprite.setPosition({gameStartX + leftWidth, 0.f}); 
     float statScaleX = rightWidth / static_cast<float>(statTexture.getSize().x);
     float statScaleY = splitY / static_cast<float>(statTexture.getSize().y);
     statSprite.setScale({statScaleX, statScaleY});
 
-
-    // C) DIYALOG KUTUSU (SPRITE)
     sf::Sprite dialogSprite(dialogTexture);
     dialogSprite.setPosition({gameStartX, splitY});
     float diaScaleX = leftWidth / static_cast<float>(dialogTexture.getSize().x);      
     float diaScaleY = (540.f - splitY) / static_cast<float>(dialogTexture.getSize().y); 
     dialogSprite.setScale({diaScaleX, diaScaleY});
 
-    
     // --- OYUN ICI NESNELER ---
     std::vector<EnemyTarget> enemies;
     float centerX = gameStartX + (leftWidth / 2.f);
@@ -123,64 +168,82 @@ int main() {
     enemies.emplace_back("GOBLIN_MAGE", centerX + 10.f, centerY - 50.f);
 
     // --- YAZILAR ---
-
-    // 1. STAT YAZILARI (YENI - Kutunun icine ornek yazi)
     sf::Text statText(font);
     statText.setString("HERO\n\nHP: 100\nMP: 40\n\nSTR: 12\nDEF: 8\n\nGOLD: 50");
     statText.setCharacterSize(16);
     statText.setFillColor(BORDEAUX_COLOR);
-    // Stat kutusunun icine, biraz iceri (padding) vererek yerlestiriyoruz
     statText.setPosition({statSprite.getPosition().x + 35.f, statSprite.getPosition().y + 40.f});
 
-
-    // 2. DIYALOG YAZILARI (Senin ayarladigin padding degerleri)
-    float textPadX = 45.f; // <--- SENIN AYARIN
-    float textPadY = 30.f; // <--- SENIN AYARIN
+    float textPadX = 47.f; 
+    float textPadY = 30.f; 
 
     sf::Text npcText(font);
-    npcText.setString("Gatekeeper:\n'You look stronger properly framed.'");
+    npcText.setString("Gatekeeper:\n'Steady hands prevail.'");
     npcText.setCharacterSize(16);
     npcText.setFillColor(BORDEAUX_COLOR); 
     npcText.setPosition({dialogSprite.getPosition().x + textPadX, dialogSprite.getPosition().y + textPadY}); 
 
     std::vector<DialogueOption> options;
-    options.emplace_back(font, "> Ready for battle.", "OPT_YES", dialogSprite.getPosition().x + textPadX, dialogSprite.getPosition().y + textPadY + 45.f);
-    options.emplace_back(font, "> Check stats first.", "OPT_NO", dialogSprite.getPosition().x + textPadX, dialogSprite.getPosition().y + textPadY + 70.f);
+    options.emplace_back(font, "> Looks unified.", "OPT_YES", dialogSprite.getPosition().x + textPadX, dialogSprite.getPosition().y + textPadY + 45.f);
+    options.emplace_back(font, "> Ready to play.", "OPT_NO", dialogSprite.getPosition().x + textPadX, dialogSprite.getPosition().y + textPadY + 70.f);
 
     // --- BUTONLAR ---
     std::vector<Button> buttons;
-    float colWidth = rightWidth / 2.f; 
+    float colWidth = rightWidth / 2.f;       
     float areaHeight = 540.f - splitY;       
-    float yellowH = areaHeight / 4.f;
+    float yellowH = areaHeight / 4.f;        
     float actionStartX = gameStartX + leftWidth;
     float actionStartY = splitY;
 
+    // ACTION BUTONLARI
+    std::vector<std::string> actionLabels = {"ATK", "DEF", "ITEM", "RUN"};
     for (int i = 0; i < 4; i++) {
-        buttons.push_back(Button("BTN_" + std::to_string(i), {colWidth, yellowH}, {actionStartX, actionStartY + (i * yellowH)}, sf::Color(180, 160, 0)));
+        buttons.emplace_back(
+            "BTN_" + std::to_string(i), 
+            actionLabels[i], 
+            buttonTexture,   
+            font,            
+            sf::Vector2f(actionStartX, actionStartY + (i * yellowH)),
+            sf::Vector2f(colWidth, yellowH)
+        );
     }
-    float purpleH = areaHeight / 2.f; 
-    buttons.push_back(Button("MAP", {colWidth, purpleH}, {actionStartX + colWidth, actionStartY}, sf::Color(100, 0, 100)));
-    buttons.push_back(Button("INV", {colWidth, purpleH}, {actionStartX + colWidth, actionStartY + purpleH}, sf::Color(80, 0, 80)));
 
+    // MENU BUTONLARI
+    float purpleH = areaHeight / 2.f;        
+    buttons.emplace_back("MAP", "", mapTexture, font, sf::Vector2f(actionStartX + colWidth, actionStartY), sf::Vector2f(colWidth, purpleH));
+    buttons.emplace_back("INV", "", inventoryTexture, font, sf::Vector2f(actionStartX + colWidth, actionStartY + purpleH), sf::Vector2f(colWidth, purpleH));
 
     // --- DONGU ---
     while (window.isOpen()) {
+        
         sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
         sf::Vector2f mousePos = window.mapPixelToCoords(pixelPos);
+        bool isMousePressed = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
 
         while (const auto event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) window.close();
             
+            if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+                if (keyPressed->code == sf::Keyboard::Key::Escape)
+                    window.close();
+            }
+            
             if (const auto* mousePress = event->getIf<sf::Event::MouseButtonPressed>()) {
                 if (mousePress->button == sf::Mouse::Button::Left) {
-                    sf::Vector2i clickPos = mousePress->position;
-                    for (auto& enemy : enemies) { if (enemy.isClicked(static_cast<sf::Vector2f>(clickPos))) std::cout << "DUSMAN: " << enemy.id << std::endl; }
-                    for (auto& opt : options) { if (opt.isHovered(static_cast<sf::Vector2f>(clickPos))) std::cout << "DIYALOG: " << opt.id << std::endl; }
-                    for (auto& btn : buttons) { if (btn.isClicked(clickPos)) std::cout << "BUTON: " << btn.id << std::endl; }
+                    sf::Vector2f clickPosF = window.mapPixelToCoords(mousePress->position); 
+                    
+                    for (auto& enemy : enemies) { if (enemy.isClicked(clickPosF)) std::cout << "DUSMAN: " << enemy.id << std::endl; }
+                    for (auto& opt : options) { if (opt.isHovered(clickPosF)) std::cout << "DIYALOG: " << opt.id << std::endl; }
+                    
+                    for (auto& btn : buttons) { 
+                        if (btn.isClicked(clickPosF)) 
+                            std::cout << "BUTON: " << btn.id << std::endl; 
+                    }
                 }
             }
         }
 
+        // --- UPDATE ---
         for (auto& opt : options) {
             if (opt.isHovered(mousePos)) { 
                 opt.text.setFillColor(sf::Color::Red); 
@@ -192,21 +255,21 @@ int main() {
         }
         for (auto& enemy : enemies) enemy.update(mousePos);
 
-        window.clear(sf::Color::Black); 
+        // Buton Efektlerini Guncelle
+        for (auto& btn : buttons) {
+            btn.update(mousePos, isMousePressed);
+        }
 
-        // 1. Zindan (Shape)
+        // --- CIZIM ---
+        window.clear(sf::Color::Black); 
+        window.setView(gameView);
+
         window.draw(redPanel);
         for (const auto& enemy : enemies) window.draw(enemy.shape);
-        
-        // 2. Stat Kutusu (Sprite) - YESIL KUTU GITTI, RESIM GELDI
         window.draw(statSprite);
-        window.draw(statText); // Icine yazi
-        
-        // 3. Diyalog Kutusu (Sprite)
+        window.draw(statText);
         window.draw(dialogSprite); 
-
-        // 4. Arayuz
-        for (const auto& btn : buttons) window.draw(btn.shape);
+        for (auto& btn : buttons) btn.draw(window);
         window.draw(npcText);
         for (const auto& opt : options) window.draw(opt.text);
 
