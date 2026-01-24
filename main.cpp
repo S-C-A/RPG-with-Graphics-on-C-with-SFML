@@ -27,21 +27,45 @@ void updateStatText(sf::Text& text, Player& player) {
     text.setString(content);
 }
 
-// --- ENVANTER LISTELEME ---
-void updateInventoryText(sf::Text& text, Player& player) {
-    std::string content = "--- BACKPACK ---\n\n";
+// --- YENI: ENVANTERI CIZME (Hover ve Tiklama Icin Gorsel) ---
+void drawInventory(sf::RenderWindow& window, sf::Font& font, Player& player, float startX, float startY, sf::Vector2f mousePos) {
     const auto& inv = player.getInventory();
+    
+    // Baslik
+    sf::Text title(font);
+    title.setString("--- BACKPACK ---");
+    title.setCharacterSize(20);
+    title.setFillColor(sf::Color(255, 215, 0)); 
+    title.setPosition({startX, startY});
+    window.draw(title);
 
+    float currentY = startY + 40.f; // Liste baslangic Y'si
+    
     for (int i = 0; i < 10; ++i) {
-        content += "[" + std::to_string(i + 1) + "] ";
+        sf::Text slotText(font);
+        slotText.setCharacterSize(18);
+        slotText.setPosition({startX, currentY});
+
         if (i < inv.size()) {
-            content += inv[i]->getName();
+            // --- DOLU SLOT ---
+            slotText.setString("[" + std::to_string(i + 1) + "] " + inv[i]->getName());
+            
+            // HOVER KONTROLU: Fare yazinin ustunde mi?
+            if (slotText.getGlobalBounds().contains(mousePos)) {
+                slotText.setFillColor(sf::Color(255, 100, 100)); // Acik Kirmizi (Hover)
+            } else {
+                slotText.setFillColor(sf::Color::Red); // Normal Kirmizi
+            }
+
         } else {
-            content += "Empty";
+            // --- BOS SLOT ---
+            slotText.setString("[" + std::to_string(i + 1) + "] - Empty -");
+            slotText.setFillColor(sf::Color(100, 100, 100)); // Gri
         }
-        content += "\n";
+
+        window.draw(slotText);
+        currentY += 25.f; // Satir araligi
     }
-    text.setString(content);
 }
 
 // --- DAKTILO EFEKTI (TYPEWRITER) ---
@@ -50,7 +74,7 @@ struct Typewriter {
     std::string currentText;  
     sf::Clock clock;          
     size_t charIndex = 0;     
-    float speed = 0.025f;     // HIZ AYARI
+    float speed = 0.025f;     
     bool isFinished = true;   
 
     void start(std::string message) {
@@ -74,12 +98,11 @@ struct Typewriter {
         }
     }
     
-    // YENI: Tiklaninca aninda bitirme fonksiyonu
     void finishInstant(sf::Text& textObj) {
         currentText = fullText;
-        charIndex = fullText.size(); // Sona gel
-        isFinished = true;           // Bitti isaretle
-        textObj.setString(currentText); // Metni ekrana bas
+        charIndex = fullText.size();
+        isFinished = true;
+        textObj.setString(currentText);
     }
 };
 
@@ -238,7 +261,7 @@ void updateButtonStates(std::vector<Button>& buttons, GameState state, Room* roo
 }
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Instant Text", sf::State::Fullscreen);
+    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Final Inventory", sf::State::Fullscreen);
     window.setFramerateLimit(60);
     window.setMouseCursorVisible(true);
     sf::View gameView(sf::FloatRect({0.f, 0.f}, {960.f, 540.f}));
@@ -289,11 +312,6 @@ int main() {
     inventoryBg.setPosition({gameStartX, 0.f});
     inventoryBg.setFillColor(sf::Color(0, 0, 0, 210)); 
 
-    sf::Text inventoryText(font);
-    inventoryText.setCharacterSize(20);
-    inventoryText.setFillColor(sf::Color(255, 215, 0)); 
-    inventoryText.setPosition({gameStartX + 50.f, 50.f});
-
     std::vector<EnemyTarget> enemies; 
     float centerX = gameStartX + (leftWidth / 2.f); 
     float centerY = splitY / 2.f;
@@ -314,7 +332,6 @@ int main() {
     npcText.setFillColor(BORDEAUX_COLOR); 
     npcText.setPosition({dialogSprite.getPosition().x + textPadX, dialogSprite.getPosition().y + textPadY}); 
     
-    // ILK MESAJ
     typer.start(game.lookAtRoom());
 
     std::vector<VisualOption> options;
@@ -357,16 +374,36 @@ int main() {
                 if (mousePress->button == sf::Mouse::Button::Left) {
                     sf::Vector2f clickPosF = window.mapPixelToCoords(mousePress->position); 
                     
-                    // --- KRITIK DEGISIKLIK: YAZIYI HIZLI GECME ---
-                    // Eger yazi hala yaziliyorsa (isFinished degilse), tiklayinca aninda bitir.
-                    // Ve 'continue' diyerek bu tiklamanin butonlari tetiklemesini engelle.
                     if (!typer.isFinished) {
                         typer.finishInstant(npcText);
-                        continue; // Dongunun basina don, asagidaki buton kontrollerini atla
+                        continue; 
                     }
 
-                    // --- BURADAN SONRASI SADECE YAZI BITTIYSE CALISIR ---
+                    // --- YENI: ENVANTER TIKLAMA KONTROLU ---
+                    if (isInventoryOpen) {
+                        float listStartX = gameStartX + 50.f;
+                        float listStartY = 50.f + 40.f; // Baslik boslugu
+                        float lineHeight = 25.f;
 
+                        // Tiklama koordinati listede mi?
+                        if (clickPosF.x >= listStartX && clickPosF.x <= listStartX + 300.f) {
+                            // Satir hesabi
+                            int clickedIndex = (int)((clickPosF.y - listStartY) / lineHeight);
+
+                            // Gecerli satir mi?
+                            if (clickedIndex >= 0 && clickedIndex < 10) {
+                                // Esya kullanma emri
+                                std::string result = game.playerUseItem(clickedIndex);
+                                
+                                if (!result.empty()) {
+                                    typer.start(result); // Sonucu yaz
+                                    updateStatText(statText, game.getPlayer()); // Statlari guncelle
+                                }
+                            }
+                        }
+                    }
+
+                    // Envanter KAPALIYSA diger tuslara bak
                     if (!isInventoryOpen) {
                         for (auto& enemy : enemies) { 
                             if (enemy.isClicked(clickPosF)) typer.start("Target: " + enemy.id);
@@ -379,7 +416,6 @@ int main() {
                             if (btn.id == "INV") {
                                 isInventoryOpen = !isInventoryOpen; 
                                 if (isInventoryOpen) {
-                                    updateInventoryText(inventoryText, game.getPlayer());
                                     typer.start("Inventory Opened.");
                                 } else {
                                     typer.start("Inventory Closed.");
@@ -400,7 +436,6 @@ int main() {
                                     else if (btn.id == "BTN_2") moveMsg = game.attemptMove(current->e);
                                     else if (btn.id == "BTN_3") moveMsg = game.attemptMove(current->s);
 
-                                    // YENI: Mesaji daktilo ile yaz
                                     typer.start(moveMsg);
 
                                     updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
@@ -431,7 +466,6 @@ int main() {
         }
         for (auto& btn : buttons) btn.update(mousePos, isMousePressed);
         
-        // YENI: Daktiloyu guncelle
         typer.update(npcText);
 
         // --- DRAW ---
@@ -441,9 +475,10 @@ int main() {
         window.draw(redPanel);
         for (const auto& enemy : enemies) window.draw(enemy.shape);
 
+        // YENI: Envanteri Ciz (Hover icin mousePos gonderiyoruz)
         if (isInventoryOpen) {
             window.draw(inventoryBg);   
-            window.draw(inventoryText); 
+            drawInventory(window, font, game.getPlayer(), gameStartX + 50.f, 50.f, mousePos);
         }
 
         window.draw(statSprite);

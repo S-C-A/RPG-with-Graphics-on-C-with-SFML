@@ -37,6 +37,41 @@ public:
         mapMgr.loadMap("Rooms.txt");
         currentRoom = mapMgr.getRoom(1); 
         if (!currentRoom) std::cerr << "CRITICAL ERROR: Room 1 not found!" << std::endl;
+
+        Item* sword = itemMgr.getItem(100);
+        if (sword) hero.addItem(sword);
+
+        // 2. Deri Zirh (ID: 200)
+        Item* armor = itemMgr.getItem(200);
+        if (armor) hero.addItem(armor);
+
+        // 3. Kucuk Iksir (ID: 1)
+        Item* potion = itemMgr.getItem(1);
+        if (potion) hero.addItem(potion);
+    }
+
+    string playerUseItem(int index) {
+        // Hata Kontrolu: Index gecerli mi?
+        if (index < 0 || index >= hero.getInventory().size()) {
+            return ""; // Gecersiz tiklama
+        }
+
+        Item* item = hero.getInventory()[index];
+        string itemName = item->getName();
+        string resultMsg = "";
+
+        // Ne tur bir esya olduguna bakalim (Mesaj icin)
+        // NOT: Dynamic cast, esyanin turunu kontrol eder.
+        if (dynamic_cast<Weapon*>(item) || dynamic_cast<Armor*>(item)) {
+            resultMsg = "Equipped [" + itemName + "]";
+        } else {
+            resultMsg = "Used [" + itemName + "]";
+        }
+
+        // Islemi Yap (Player.h icindeki useItem her seyi hallediyor: silme, kusanma vs.)
+        hero.useItem(index);
+
+        return resultMsg;
     }
 
     // --- GETTERS ---
