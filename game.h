@@ -48,14 +48,22 @@ public:
         // 3. Kucuk Iksir (ID: 1)
         Item* potion = itemMgr.getItem(1);
         if (potion) hero.addItem(potion);
-    }
 
-    string playerUseItem(int index) {
-        // Hata Kontrolu: Index gecerli mi?
-        if (index < 0 || index >= hero.getInventory().size()) {
-            return ""; // Gecersiz tiklama
+        Item* key = itemMgr.getItem(300);
+        if (key) hero.addItem(key);
+    }
+        // Eşyanın açıklamasını döndürür (Hover için)
+        string getItemDesc(int index) {
+            if (index < 0 || index >= hero.getInventory().size()) return "";
+            return hero.getInventory()[index]->getInfo();
         }
 
+        string playerUseItem(int index) {
+            // Hata Kontrolu: Index gecerli mi?
+            if (index < 0 || index >= hero.getInventory().size()) {
+                return ""; // Gecersiz tiklama
+            }
+        
         Item* item = hero.getInventory()[index];
         string itemName = item->getName();
         string resultMsg = "";
