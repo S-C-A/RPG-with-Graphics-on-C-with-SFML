@@ -2,13 +2,14 @@
 #include <iostream>
 #include <vector>
 
-#include "Player.h" 
+// --- ENTEGRASYON: GAME ENGINE ---
+// Game.h dosyasini dahil ediyoruz. Bu dosya Player.h'i da iceriyor.
+#include "Game.h" 
 
-// --- OYUN DURUMLARI (SADECE OYNANIS) ---
-// Envanteri buradan sildik, cunku o ayri bir katman olacak.
+// --- OYUN DURUMLARI ---
 enum class GameState {
-    EXPLORING,      // Gezinti Modu
-    COMBAT          // Savas Modu
+    EXPLORING,
+    COMBAT
 };
 
 // --- RENK AYARI ---
@@ -51,7 +52,7 @@ void updateDialogue(sf::Text& text, std::string message) {
     text.setString("System:\n" + message);
 }
 
-// --- DUSMAN ---
+// --- DUSMAN YAPISI ---
 struct EnemyTarget {
     sf::RectangleShape shape;
     std::string id;
@@ -76,11 +77,30 @@ struct EnemyTarget {
     }
 };
 
-// --- DIYALOG SECENEK ---
-struct DialogueOption {
+// --- YENI: ODA GUNCELLEME YARDIMCISI ---
+// Oda degistiginde POV ekranindaki kareleri yenileyecek.
+void updateEnemiesInView(std::vector<EnemyTarget>& enemyShapes, Room* room, float startX, float startY) {
+    enemyShapes.clear(); // Eski odadaki kareleri sil
+    
+    if (!room) return;
+
+    // Odadaki canavar ID'lerini gez
+    float offsetX = 0;
+    for (int mID : room->monsterID) {
+        // Her canavar icin bir kare olustur
+        EnemyTarget target("Monster_" + std::to_string(mID), startX + offsetX, startY);
+        enemyShapes.push_back(target);
+        offsetX += 120.f; // Bir sonraki kareyi saga kaydir
+    }
+}
+
+// --- GORSEL SECENEK YAPISI (ISIM DEGISTI!) ---
+// 'DialogueOption' ismi backend dosyalarinda da oldugu icin cakisma yapiyordu.
+// Ismini 'VisualOption' yaptik. Sorun cozuldu.
+struct VisualOption {
     sf::Text text;
     std::string id;
-    DialogueOption(sf::Font& font, std::string _text, std::string _id, float x, float y) : text(font) {
+    VisualOption(sf::Font& font, std::string _text, std::string _id, float x, float y) : text(font) {
         id = _id;
         text.setString(_text);
         text.setCharacterSize(16);
@@ -169,17 +189,18 @@ void updateButtonLabels(std::vector<Button>& buttons, GameState state) {
 }
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Inventory Overlay", sf::State::Fullscreen);
+    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Fixed Integration", sf::State::Fullscreen);
     window.setFramerateLimit(60);
     window.setMouseCursorVisible(true);
     sf::View gameView(sf::FloatRect({0.f, 0.f}, {960.f, 540.f}));
     window.setView(gameView);
 
-    // --- TEMEL DEGISKENLER ---
     GameState currentState = GameState::EXPLORING;
-    bool isInventoryOpen = false; // <--- YENI: Envanter acik mi bayragi
+    bool isInventoryOpen = false; 
 
-    Player hero; 
+    // --- GAME ENGINE BASLATIYORUZ ---
+    Game game; 
+
     sf::Font font;
     if (!font.openFromFile("font.ttf")) return -1;
 
@@ -198,7 +219,6 @@ int main() {
     float gameStartX = offsetX;
     float splitY = 380.f;
 
-    // --- PANELLER ---
     sf::RectangleShape redPanel({leftWidth, splitY});
     redPanel.setPosition({gameStartX, 0.f}); 
     redPanel.setFillColor(sf::Color(20, 10, 10)); 
@@ -215,35 +235,46 @@ int main() {
     float diaScaleY = (540.f - splitY) / static_cast<float>(dialogTexture.getSize().y); 
     dialogSprite.setScale({diaScaleX, diaScaleY});
 
-    // --- ENVANTER ARAYUZU (OVERLAY) ---
-    sf::RectangleShape inventoryBg({leftWidth, splitY}); // POV boyutuyla ayni
+    // --- ENVANTER OVERLAY ---
+    sf::RectangleShape inventoryBg({leftWidth, splitY}); 
     inventoryBg.setPosition({gameStartX, 0.f});
-    inventoryBg.setFillColor(sf::Color(0, 0, 0, 210)); // Saydam Siyah
+    inventoryBg.setFillColor(sf::Color(0, 0, 0, 210)); 
 
     sf::Text inventoryText(font);
     inventoryText.setCharacterSize(20);
-    inventoryText.setFillColor(sf::Color(255, 215, 0)); // Altin sarisi
+    inventoryText.setFillColor(sf::Color(255, 215, 0)); 
     inventoryText.setPosition({gameStartX + 50.f, 50.f});
 
+    // --- POV ELEMENTS ---
     std::vector<EnemyTarget> enemies; 
+    float centerX = gameStartX + (leftWidth / 2.f); 
+    float centerY = splitY / 2.f;
+
+    // ILK ODA GUNCELLEMESI
+    // Baslangic odasina bakip (Game::lookAtRoom) canavarlari ciziyoruz.
+    updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
     
-    // --- YAZILAR ---
+    // --- TEXTS ---
     sf::Text statText(font);
     statText.setCharacterSize(16);
     statText.setFillColor(BORDEAUX_COLOR);
     statText.setPosition({statSprite.getPosition().x + 35.f, statSprite.getPosition().y + 40.f});
-    updateStatText(statText, hero);
+    
+    // Game nesnesinden player'i aliyoruz (Artik yerel hero yok!)
+    updateStatText(statText, game.getPlayer());
 
     float textPadX = 47.f; 
     float textPadY = 30.f; 
 
     sf::Text npcText(font);
-    npcText.setString("Gatekeeper:\n'The bag opens anytime now.'");
+    // Baslangic odasinin tarifini yaz (Game.h'dan geliyor)
+    npcText.setString("System:\n" + game.lookAtRoom());
     npcText.setCharacterSize(16);
     npcText.setFillColor(BORDEAUX_COLOR); 
     npcText.setPosition({dialogSprite.getPosition().x + textPadX, dialogSprite.getPosition().y + textPadY}); 
 
-    std::vector<DialogueOption> options;
+    // --- BUTTONS & OPTIONS ---
+    std::vector<VisualOption> options; // DIKKAT: VisualOption oldu
     std::vector<Button> buttons;
     float colWidth = rightWidth / 2.f;       
     float areaHeight = 540.f - splitY;       
@@ -267,6 +298,7 @@ int main() {
     buttons.emplace_back("MAP", "", mapTexture, font, sf::Vector2f(actionStartX + colWidth, actionStartY), sf::Vector2f(colWidth, purpleH));
     buttons.emplace_back("INV", "", inventoryTexture, font, sf::Vector2f(actionStartX + colWidth, actionStartY + purpleH), sf::Vector2f(colWidth, purpleH));
 
+    // --- MAIN LOOP ---
     while (window.isOpen()) {
         
         sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
@@ -279,16 +311,11 @@ int main() {
             if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
                 if (keyPressed->code == sf::Keyboard::Key::Escape) window.close();
                 
-                // TEST: Durum Degistirme (C ve E)
-                if (keyPressed->code == sf::Keyboard::Key::C) {
-                    currentState = GameState::COMBAT;
-                    updateButtonLabels(buttons, currentState);
-                    updateDialogue(npcText, "COMBAT STARTED! (Inventory still works)");
-                }
-                if (keyPressed->code == sf::Keyboard::Key::E) {
-                    currentState = GameState::EXPLORING;
-                    updateButtonLabels(buttons, currentState);
-                    updateDialogue(npcText, "Exploring mode.");
+                // TEST CHEAT: G
+                if (keyPressed->code == sf::Keyboard::Key::G) {
+                    game.addGoldCheat(50);
+                    updateStatText(statText, game.getPlayer());
+                    updateDialogue(npcText, "Cheat: +50 Gold added.");
                 }
             }
             
@@ -296,7 +323,7 @@ int main() {
                 if (mousePress->button == sf::Mouse::Button::Left) {
                     sf::Vector2f clickPosF = window.mapPixelToCoords(mousePress->position); 
                     
-                    // Dusman Tiklama (Sadece Envanter Kapaliysa)
+                    // Dusman Tiklama
                     if (!isInventoryOpen) {
                         for (auto& enemy : enemies) { 
                             if (enemy.isClicked(clickPosF)) updateDialogue(npcText, "Target: " + enemy.id);
@@ -306,32 +333,41 @@ int main() {
                     for (auto& btn : buttons) { 
                         if (btn.isClicked(clickPosF)) {
                             
-                            // --- 1. INV BUTONU (Her zaman calisir) ---
+                            // INV
                             if (btn.id == "INV") {
-                                isInventoryOpen = !isInventoryOpen; // Aciksa kapat, kapaliysa ac (Toggle)
-                                
+                                isInventoryOpen = !isInventoryOpen; 
                                 if (isInventoryOpen) {
-                                    updateInventoryText(inventoryText, hero);
+                                    updateInventoryText(inventoryText, game.getPlayer());
                                     updateDialogue(npcText, "Inventory Opened.");
                                 } else {
                                     updateDialogue(npcText, "Inventory Closed.");
                                 }
                             }
-                            
-                            // --- 2. MAP BUTONU ---
+                            // MAP
                             else if (btn.id == "MAP" && !isInventoryOpen) {
                                 updateDialogue(npcText, "Map clicked.");
                             }
-
-                            // --- 3. AKSIYON BUTONLARI (Sadece Envanter Kapaliysa) ---
+                            // ACTIONS
                             else if (!isInventoryOpen) {
                                 if (currentState == GameState::EXPLORING) {
-                                    if (btn.id == "BTN_0") updateDialogue(npcText, "Moving NORTH...");
-                                    else if (btn.id == "BTN_1") updateDialogue(npcText, "Moving WEST...");
-                                    else if (btn.id == "BTN_2") updateDialogue(npcText, "Moving EAST...");
-                                    else if (btn.id == "BTN_3") updateDialogue(npcText, "Moving SOUTH...");
+                                    Room* current = game.getCurrentRoom();
+                                    std::string moveMsg = "";
+                                    bool moved = false;
+
+                                    // YON TUSLARI: Game Engine'e emri gonder
+                                    if (btn.id == "BTN_0") { moveMsg = game.attemptMove(current->n); moved = true; }
+                                    else if (btn.id == "BTN_1") { moveMsg = game.attemptMove(current->w); moved = true; }
+                                    else if (btn.id == "BTN_2") { moveMsg = game.attemptMove(current->e); moved = true; }
+                                    else if (btn.id == "BTN_3") { moveMsg = game.attemptMove(current->s); moved = true; }
+
+                                    if (moved) {
+                                        // Hareket sonrasi yaziyi ve POV'u guncelle
+                                        updateDialogue(npcText, moveMsg);
+                                        updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
+                                    }
                                 }
                                 else if (currentState == GameState::COMBAT) {
+                                    // Buraya savas kodlari gelecek
                                     if (btn.id == "BTN_0") updateDialogue(npcText, "ATTACK!");
                                     else if (btn.id == "BTN_1") updateDialogue(npcText, "DEFEND!");
                                     else if (btn.id == "BTN_2") updateDialogue(npcText, "ITEM Used!");
@@ -355,25 +391,20 @@ int main() {
             }
         }
         
-        // Envanter acik degilse butonlari guncelle
         for (auto& btn : buttons) btn.update(mousePos, isMousePressed);
 
-
-        // --- CIZIM (DRAW) ---
+        // --- DRAW ---
         window.clear(sf::Color::Black); 
         window.setView(gameView);
 
-        // 1. ZEMIN ve OYUN DUNYASI
         window.draw(redPanel);
         for (const auto& enemy : enemies) window.draw(enemy.shape);
 
-        // 2. OVERLAY (UST KATMAN)
         if (isInventoryOpen) {
-            window.draw(inventoryBg);   // Yari saydam perde
-            window.draw(inventoryText); // Liste
+            window.draw(inventoryBg);   
+            window.draw(inventoryText); 
         }
 
-        // 3. ARAYUZ (GUI)
         window.draw(statSprite);
         window.draw(statText); 
         window.draw(dialogSprite); 
