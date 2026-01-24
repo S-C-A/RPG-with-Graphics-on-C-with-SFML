@@ -3,16 +3,13 @@
 #include <vector>
 
 // --- ENTEGRASYON: GAME ENGINE ---
-// Game.h dosyasini dahil ediyoruz. Bu dosya Player.h'i da iceriyor.
 #include "Game.h" 
 
-// --- OYUN DURUMLARI ---
 enum class GameState {
     EXPLORING,
     COMBAT
 };
 
-// --- RENK AYARI ---
 const sf::Color BORDEAUX_COLOR = sf::Color(110, 0, 0); 
 
 // --- STATLARI EKRANA YAZ ---
@@ -47,10 +44,44 @@ void updateInventoryText(sf::Text& text, Player& player) {
     text.setString(content);
 }
 
-// --- DIYALOG KUTUSU GUNCELLE ---
-void updateDialogue(sf::Text& text, std::string message) {
-    text.setString("System:\n" + message);
-}
+// --- DAKTILO EFEKTI (TYPEWRITER) ---
+struct Typewriter {
+    std::string fullText;     
+    std::string currentText;  
+    sf::Clock clock;          
+    size_t charIndex = 0;     
+    float speed = 0.025f;     // HIZ AYARI
+    bool isFinished = true;   
+
+    void start(std::string message) {
+        fullText = "System:\n" + message; 
+        currentText = "";                 
+        charIndex = 0;                    
+        isFinished = false;               
+        clock.restart();
+    }
+
+    void update(sf::Text& textObj) {
+        if (!isFinished && charIndex < fullText.size()) {
+            if (clock.getElapsedTime().asSeconds() > speed) {
+                currentText += fullText[charIndex]; 
+                charIndex++;
+                clock.restart(); 
+                textObj.setString(currentText); 
+            }
+        } else {
+            isFinished = true;
+        }
+    }
+    
+    // YENI: Tiklaninca aninda bitirme fonksiyonu
+    void finishInstant(sf::Text& textObj) {
+        currentText = fullText;
+        charIndex = fullText.size(); // Sona gel
+        isFinished = true;           // Bitti isaretle
+        textObj.setString(currentText); // Metni ekrana bas
+    }
+};
 
 // --- DUSMAN YAPISI ---
 struct EnemyTarget {
@@ -77,26 +108,19 @@ struct EnemyTarget {
     }
 };
 
-// --- YENI: ODA GUNCELLEME YARDIMCISI ---
-// Oda degistiginde POV ekranindaki kareleri yenileyecek.
+// --- ODA GUNCELLEME YARDIMCISI ---
 void updateEnemiesInView(std::vector<EnemyTarget>& enemyShapes, Room* room, float startX, float startY) {
-    enemyShapes.clear(); // Eski odadaki kareleri sil
-    
+    enemyShapes.clear(); 
     if (!room) return;
 
-    // Odadaki canavar ID'lerini gez
     float offsetX = 0;
     for (int mID : room->monsterID) {
-        // Her canavar icin bir kare olustur
         EnemyTarget target("Monster_" + std::to_string(mID), startX + offsetX, startY);
         enemyShapes.push_back(target);
-        offsetX += 120.f; // Bir sonraki kareyi saga kaydir
+        offsetX += 120.f; 
     }
 }
 
-// --- GORSEL SECENEK YAPISI (ISIM DEGISTI!) ---
-// 'DialogueOption' ismi backend dosyalarinda da oldugu icin cakisma yapiyordu.
-// Ismini 'VisualOption' yaptik. Sorun cozuldu.
 struct VisualOption {
     sf::Text text;
     std::string id;
@@ -116,11 +140,13 @@ struct Button {
     sf::Text label;    
     std::string id;
     sf::Vector2f baseScale; 
+    sf::Vector2f m_targetSize; 
 
     Button(std::string _id, std::string _labelText, const sf::Texture& texture, sf::Font& font, sf::Vector2f position, sf::Vector2f targetSize) 
-        : sprite(texture), label(font) 
+        : sprite(texture), label(font), m_targetSize(targetSize)
     {
         id = _id;
+
         sf::Vector2u texSize = texture.getSize();
         sprite.setOrigin({static_cast<float>(texSize.x) / 2.f, static_cast<float>(texSize.y) / 2.f});
         sprite.setPosition({position.x + targetSize.x / 2.f, position.y + targetSize.y / 2.f});
@@ -142,6 +168,20 @@ struct Button {
             });
             label.setPosition(sprite.getPosition());
         }
+    }
+
+    void setStyle(bool active, const sf::Texture& tex) {
+        sprite.setTexture(tex); 
+        sf::Vector2u texSize = tex.getSize();
+        sprite.setOrigin({static_cast<float>(texSize.x) / 2.f, static_cast<float>(texSize.y) / 2.f});
+        
+        float scaleX = m_targetSize.x / static_cast<float>(texSize.x);
+        float scaleY = m_targetSize.y / static_cast<float>(texSize.y);
+        baseScale = {scaleX, scaleY};
+        sprite.setScale(baseScale);
+
+        if (active) label.setFillColor(BORDEAUX_COLOR);
+        else label.setFillColor(sf::Color(100, 100, 100)); 
     }
 
     void update(sf::Vector2f mousePos, bool isMousePressed) {
@@ -173,14 +213,23 @@ struct Button {
     }
 };
 
-void updateButtonLabels(std::vector<Button>& buttons, GameState state) {
+void updateButtonStates(std::vector<Button>& buttons, GameState state, Room* room, 
+                        const sf::Texture& normalTex, const sf::Texture& greyTex) {
     if (state == GameState::EXPLORING) {
         buttons[0].setLabelText("NORTH");
         buttons[1].setLabelText("WEST");
         buttons[2].setLabelText("EAST");
         buttons[3].setLabelText("SOUTH");
+
+        if (room) {
+            if (room->n == -1) buttons[0].setStyle(false, greyTex); else buttons[0].setStyle(true, normalTex);
+            if (room->w == -1) buttons[1].setStyle(false, greyTex); else buttons[1].setStyle(true, normalTex);
+            if (room->e == -1) buttons[2].setStyle(false, greyTex); else buttons[2].setStyle(true, normalTex);
+            if (room->s == -1) buttons[3].setStyle(false, greyTex); else buttons[3].setStyle(true, normalTex);
+        }
     } 
     else if (state == GameState::COMBAT) {
+        for(auto& btn : buttons) btn.setStyle(true, normalTex);
         buttons[0].setLabelText("ATK");
         buttons[1].setLabelText("DEF");
         buttons[2].setLabelText("ITEM");
@@ -189,7 +238,7 @@ void updateButtonLabels(std::vector<Button>& buttons, GameState state) {
 }
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Fixed Integration", sf::State::Fullscreen);
+    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Instant Text", sf::State::Fullscreen);
     window.setFramerateLimit(60);
     window.setMouseCursorVisible(true);
     sf::View gameView(sf::FloatRect({0.f, 0.f}, {960.f, 540.f}));
@@ -198,18 +247,19 @@ int main() {
     GameState currentState = GameState::EXPLORING;
     bool isInventoryOpen = false; 
 
-    // --- GAME ENGINE BASLATIYORUZ ---
     Game game; 
+    Typewriter typer; 
 
     sf::Font font;
     if (!font.openFromFile("font.ttf")) return -1;
 
-    // --- TEXTURE YUKLEME ---
+    // --- TEXTURES ---
     sf::Texture dialogTexture; if (!dialogTexture.loadFromFile("textures/Textbox[Final].png")) return -1;
     sf::Texture statTexture; if (!statTexture.loadFromFile("textures/Statbox[Final].png")) return -1;
     sf::Texture buttonTexture; if (!buttonTexture.loadFromFile("textures/Button[Final].png")) return -1;
     sf::Texture inventoryTexture; if (!inventoryTexture.loadFromFile("textures/Inventory[Final].png")) return -1;
     sf::Texture mapTexture; if (!mapTexture.loadFromFile("textures/Map[Final].png")) { mapTexture = inventoryTexture; }
+    sf::Texture buttonGreyTexture; if (!buttonGreyTexture.loadFromFile("textures/Button[Grey].png")) return -1;
 
     // --- LAYOUT ---
     float leftWidth = 560.f; 
@@ -235,7 +285,6 @@ int main() {
     float diaScaleY = (540.f - splitY) / static_cast<float>(dialogTexture.getSize().y); 
     dialogSprite.setScale({diaScaleX, diaScaleY});
 
-    // --- ENVANTER OVERLAY ---
     sf::RectangleShape inventoryBg({leftWidth, splitY}); 
     inventoryBg.setPosition({gameStartX, 0.f});
     inventoryBg.setFillColor(sf::Color(0, 0, 0, 210)); 
@@ -245,36 +294,30 @@ int main() {
     inventoryText.setFillColor(sf::Color(255, 215, 0)); 
     inventoryText.setPosition({gameStartX + 50.f, 50.f});
 
-    // --- POV ELEMENTS ---
     std::vector<EnemyTarget> enemies; 
     float centerX = gameStartX + (leftWidth / 2.f); 
     float centerY = splitY / 2.f;
 
-    // ILK ODA GUNCELLEMESI
-    // Baslangic odasina bakip (Game::lookAtRoom) canavarlari ciziyoruz.
     updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
     
-    // --- TEXTS ---
     sf::Text statText(font);
     statText.setCharacterSize(16);
     statText.setFillColor(BORDEAUX_COLOR);
     statText.setPosition({statSprite.getPosition().x + 35.f, statSprite.getPosition().y + 40.f});
-    
-    // Game nesnesinden player'i aliyoruz (Artik yerel hero yok!)
     updateStatText(statText, game.getPlayer());
 
     float textPadX = 47.f; 
     float textPadY = 30.f; 
 
     sf::Text npcText(font);
-    // Baslangic odasinin tarifini yaz (Game.h'dan geliyor)
-    npcText.setString("System:\n" + game.lookAtRoom());
     npcText.setCharacterSize(16);
     npcText.setFillColor(BORDEAUX_COLOR); 
     npcText.setPosition({dialogSprite.getPosition().x + textPadX, dialogSprite.getPosition().y + textPadY}); 
+    
+    // ILK MESAJ
+    typer.start(game.lookAtRoom());
 
-    // --- BUTTONS & OPTIONS ---
-    std::vector<VisualOption> options; // DIKKAT: VisualOption oldu
+    std::vector<VisualOption> options;
     std::vector<Button> buttons;
     float colWidth = rightWidth / 2.f;       
     float areaHeight = 540.f - splitY;       
@@ -292,86 +335,82 @@ int main() {
             sf::Vector2f(colWidth, yellowH)
         );
     }
-    updateButtonLabels(buttons, currentState);
+    
+    updateButtonStates(buttons, currentState, game.getCurrentRoom(), buttonTexture, buttonGreyTexture);
 
     float purpleH = areaHeight / 2.f;        
     buttons.emplace_back("MAP", "", mapTexture, font, sf::Vector2f(actionStartX + colWidth, actionStartY), sf::Vector2f(colWidth, purpleH));
     buttons.emplace_back("INV", "", inventoryTexture, font, sf::Vector2f(actionStartX + colWidth, actionStartY + purpleH), sf::Vector2f(colWidth, purpleH));
 
-    // --- MAIN LOOP ---
     while (window.isOpen()) {
-        
         sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
         sf::Vector2f mousePos = window.mapPixelToCoords(pixelPos);
         bool isMousePressed = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
 
         while (const auto event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) window.close();
-            
             if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
                 if (keyPressed->code == sf::Keyboard::Key::Escape) window.close();
-                
-                // TEST CHEAT: G
-                if (keyPressed->code == sf::Keyboard::Key::G) {
-                    game.addGoldCheat(50);
-                    updateStatText(statText, game.getPlayer());
-                    updateDialogue(npcText, "Cheat: +50 Gold added.");
-                }
             }
             
             if (const auto* mousePress = event->getIf<sf::Event::MouseButtonPressed>()) {
                 if (mousePress->button == sf::Mouse::Button::Left) {
                     sf::Vector2f clickPosF = window.mapPixelToCoords(mousePress->position); 
                     
-                    // Dusman Tiklama
+                    // --- KRITIK DEGISIKLIK: YAZIYI HIZLI GECME ---
+                    // Eger yazi hala yaziliyorsa (isFinished degilse), tiklayinca aninda bitir.
+                    // Ve 'continue' diyerek bu tiklamanin butonlari tetiklemesini engelle.
+                    if (!typer.isFinished) {
+                        typer.finishInstant(npcText);
+                        continue; // Dongunun basina don, asagidaki buton kontrollerini atla
+                    }
+
+                    // --- BURADAN SONRASI SADECE YAZI BITTIYSE CALISIR ---
+
                     if (!isInventoryOpen) {
                         for (auto& enemy : enemies) { 
-                            if (enemy.isClicked(clickPosF)) updateDialogue(npcText, "Target: " + enemy.id);
+                            if (enemy.isClicked(clickPosF)) typer.start("Target: " + enemy.id);
                         }
                     }
 
                     for (auto& btn : buttons) { 
                         if (btn.isClicked(clickPosF)) {
-                            
                             // INV
                             if (btn.id == "INV") {
                                 isInventoryOpen = !isInventoryOpen; 
                                 if (isInventoryOpen) {
                                     updateInventoryText(inventoryText, game.getPlayer());
-                                    updateDialogue(npcText, "Inventory Opened.");
+                                    typer.start("Inventory Opened.");
                                 } else {
-                                    updateDialogue(npcText, "Inventory Closed.");
+                                    typer.start("Inventory Closed.");
                                 }
                             }
                             // MAP
                             else if (btn.id == "MAP" && !isInventoryOpen) {
-                                updateDialogue(npcText, "Map clicked.");
+                                typer.start("Map system active.");
                             }
                             // ACTIONS
                             else if (!isInventoryOpen) {
                                 if (currentState == GameState::EXPLORING) {
                                     Room* current = game.getCurrentRoom();
                                     std::string moveMsg = "";
-                                    bool moved = false;
+                                    
+                                    if (btn.id == "BTN_0") moveMsg = game.attemptMove(current->n);
+                                    else if (btn.id == "BTN_1") moveMsg = game.attemptMove(current->w);
+                                    else if (btn.id == "BTN_2") moveMsg = game.attemptMove(current->e);
+                                    else if (btn.id == "BTN_3") moveMsg = game.attemptMove(current->s);
 
-                                    // YON TUSLARI: Game Engine'e emri gonder
-                                    if (btn.id == "BTN_0") { moveMsg = game.attemptMove(current->n); moved = true; }
-                                    else if (btn.id == "BTN_1") { moveMsg = game.attemptMove(current->w); moved = true; }
-                                    else if (btn.id == "BTN_2") { moveMsg = game.attemptMove(current->e); moved = true; }
-                                    else if (btn.id == "BTN_3") { moveMsg = game.attemptMove(current->s); moved = true; }
+                                    // YENI: Mesaji daktilo ile yaz
+                                    typer.start(moveMsg);
 
-                                    if (moved) {
-                                        // Hareket sonrasi yaziyi ve POV'u guncelle
-                                        updateDialogue(npcText, moveMsg);
-                                        updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
-                                    }
+                                    updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
+                                    updateButtonStates(buttons, currentState, game.getCurrentRoom(), buttonTexture, buttonGreyTexture);
                                 }
                                 else if (currentState == GameState::COMBAT) {
-                                    // Buraya savas kodlari gelecek
-                                    if (btn.id == "BTN_0") updateDialogue(npcText, "ATTACK!");
-                                    else if (btn.id == "BTN_1") updateDialogue(npcText, "DEFEND!");
-                                    else if (btn.id == "BTN_2") updateDialogue(npcText, "ITEM Used!");
-                                    else if (btn.id == "BTN_3") updateDialogue(npcText, "RUN!");
+                                    if (btn.id == "BTN_0") typer.start("ATTACK!");
+                                    else if (btn.id == "BTN_1") typer.start("DEFEND!");
+                                    else if (btn.id == "BTN_2") typer.start("ITEM Used!");
+                                    else if (btn.id == "BTN_3") typer.start("RUN!");
                                 }
                             }
                         } 
@@ -390,8 +429,10 @@ int main() {
                 opt.text.setStyle(sf::Text::Regular); 
             }
         }
-        
         for (auto& btn : buttons) btn.update(mousePos, isMousePressed);
+        
+        // YENI: Daktiloyu guncelle
+        typer.update(npcText);
 
         // --- DRAW ---
         window.clear(sf::Color::Black); 
@@ -414,6 +455,5 @@ int main() {
 
         window.display();
     }
-
     return 0;
 }

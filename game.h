@@ -2,9 +2,9 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <algorithm> // replace fonksiyonu icin gerekli
 
 // BAGIMLILIKLAR
-// Bu dosyalarin proje klasorunde oldugundan emin ol
 #include "Player.h"
 #include "ItemManager.h"
 #include "enemyManager.h"
@@ -25,29 +25,27 @@ private:
 
     Room* currentRoom;
 
+    // --- METIN TEMIZLEYICI (YENI) ---
+    // "Dark_Corridor" gibi metinleri "Dark Corridor" haline cevirir.
+    string formatText(string text) {
+        std::replace(text.begin(), text.end(), '_', ' ');
+        return text;
+    }
+
 public:
     Game() {
-        // Hata ciktilari icin cerr kullaniyoruz
         mapMgr.loadMap("Rooms.txt");
-        
-        // Baslangic Odasi (ID: 1)
         currentRoom = mapMgr.getRoom(1); 
-        
-        if (!currentRoom) {
-            std::cerr << "CRITICAL ERROR: Room 1 not found!" << std::endl;
-        }
+        if (!currentRoom) std::cerr << "CRITICAL ERROR: Room 1 not found!" << std::endl;
     }
 
     // --- GETTERS ---
-    // Main dosyasinin oyuncu verilerine (HP, Gold vb.) ulasmasi icin
     Player& getPlayer() { return hero; }
-    
-    // Main dosyasinin odaya (canavar var mi vb.) ulasmasi icin
     Room* getCurrentRoom() { return currentRoom; }
 
-    // --- ACTIONS (EMIRLER) ---
+    // --- ACTIONS ---
 
-    // 1. Hareket Mantigi (Yon tusuna basinca bu cagrilacak)
+    // 1. Hareket Mantigi (Guncellendi)
     string attemptMove(int nextRoomID) {
         if (nextRoomID == -1) {
             return "The path is blocked.";
@@ -56,12 +54,13 @@ public:
         Room* next = mapMgr.getRoom(nextRoomID);
         if (next) {
             currentRoom = next;
-            return "Moved to: " + currentRoom->info;
+            // Artik "Moved to:" demiyoruz, direkt odanin ismini/aciklamasini veriyoruz.
+            return formatText(currentRoom->info);
         }
         return "Unknown path.";
     }
 
-    // 2. Etkilesim (Yerdeki esyayi alma)
+    // 2. Etkilesim
     string tryPickupItem() {
         if (currentRoom->itemID != -1) {
             Item* item = itemMgr.getItem(currentRoom->itemID);
@@ -78,13 +77,13 @@ public:
         return "Nothing here.";
     }
 
-    // 3. Baslangic Bakisi
+    // 3. Baslangic Bakisi (Guncellendi)
     string lookAtRoom() {
-        if(currentRoom) return currentRoom->info;
+        if(currentRoom) return formatText(currentRoom->info);
         return "Void.";
     }
     
-    // 4. Cheat (Test icin)
+    // 4. Cheat
     void addGoldCheat(int amount) {
         hero.goldChange(amount);
     }
