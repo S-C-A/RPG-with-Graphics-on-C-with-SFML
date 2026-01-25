@@ -1,7 +1,6 @@
-#pragma once
+/*#pragma once
 #include <iostream>
 #include <vector>
-#include <string> // string kutuphanesini ekledik
 #include "player.h"
 #include "monster.h"
 #include "ItemManager.h"
@@ -35,14 +34,13 @@ private:
 
             cout << ">>> Loot Drop: [" << newItem->getName() << "]" << endl;
 
-            // A. FREE INVENTORY (addItem hala BOOL donuyor, burasi calisir)
+            // A. FREE INVENTORY
             if (hero->addItem(newItem)) {
-                // Mesaj Game.h tarafindan uretiliyordu ama burada terminale biz yaziyoruz
                 cout << ">>> Added " << newItem->getName() << " to inventory." << endl;
                 continue;
             }
 
-            // B. FULL INVENTORY (Sorunlu kisim buradaydi)
+            // B. FULL INVENTORY
             char choice;
             cout << "Inventory full! Swap " << newItem->getName() << " with something? (y/n): ";
             cin >> choice;
@@ -63,16 +61,7 @@ private:
                         break; 
                     }
 
-                    // --- DUZELTME BASLANGICI ---
-                    
-                    // 1. Once donen mesaji aliyoruz (Cunku removeItem artik string donuyor)
-                    string resultMsg = hero->removeItem(slotToDelete - 1);
-
-                    // 2. Mesajin icinde "discarded" kelimesi geciyor mu diye bakiyoruz.
-                    // string::npos demek "bulunamadi" demektir. Yani != npos ise "bulundu" demektir.
-                    if (resultMsg.find("discarded") != string::npos) {
-                        
-                        // Basarili!
+                    if (hero->removeItem(slotToDelete - 1)) {
                         cout << "Item discarded." << endl;
                         
                         hero->addItem(newItem); 
@@ -81,12 +70,8 @@ private:
                         itemSwapped = true;
                     }
                     else {
-                        // Basarisiz (Orn: Key Item veya gecersiz index)
-                        // Player.h zaten hatanin nedenini mesaj olarak dondu ("You cannot discard...")
-                        cout << resultMsg << endl; 
-                        cout << "Please select a different item." << endl;
+                        cout << "Invalid selection. Try again." << endl;
                     }
-                    // --- DUZELTME BITISI ---
                 }
             } 
             else {
@@ -197,13 +182,9 @@ public:
                 Consumable* consumableItem = dynamic_cast<Consumable*>(selectedItem);
 
                 if (consumableItem != nullptr) {
-                    // Item::use artik string donuyor, sonucu konsola yazdiralim
-                    string effectMsg = consumableItem->use(hero); 
-                    cout << effectMsg << endl;
+                    consumableItem->use(hero); 
                     
-                    // removeItem cagiriyoruz (string donuyor ama burada return degerini kullanmasak da olur)
-                    // Savas sirasinda Key Item kullanilamayacagi icin (yukaridaki if sagliyor)
-                    // dogrudan siliyoruz.
+                    cout << selectedItem->getName() << " used.\n";
                     hero->removeItem(itemIndex - 1);
 
                     validItemSelected = true;
@@ -255,4 +236,4 @@ public:
         }
         return playerWon;
     }
-};
+}; */

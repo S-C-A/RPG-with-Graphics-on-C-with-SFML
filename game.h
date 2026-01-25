@@ -60,6 +60,11 @@ public:
         return hero.useItem(index);
     }
 
+    string playerDropItem(int index) {
+        // Player.h icindeki guncelledigimiz fonksiyonu cagirir ve mesaji doner
+        return hero.removeItem(index);
+    }
+
     Player& getPlayer() { return hero; }
     Room* getCurrentRoom() { return currentRoom; }
 

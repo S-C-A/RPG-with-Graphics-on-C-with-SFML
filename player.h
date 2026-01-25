@@ -122,7 +122,7 @@ public:
     std::string equipWeapon(Weapon* newWeapon);
     std::string useItem(int index);           
 
-    bool removeItem(int index);
+    std::string removeItem(int index);
 
     void addExp(int amount) {
         if (lvl >= MAX_LVL) return;
@@ -317,23 +317,27 @@ inline std::string Player::equipArmor(Armor* newArmor){
     return msg;
 }
 
-inline bool Player::removeItem(int index) {
+inline std::string Player::removeItem(int index) {
+    // 1. Gecersiz index kontrolu
     if (index < 0 || index >= inventory.size()) {
-        return false; 
+        return ""; 
     }
 
     Item* itemToDelete = inventory[index];
 
+    // 2. KORUMA MANTIGI (BURASI AYNI KALIYOR)
+    // Eger esya atilamaz (KeyItem) ise, silme islemi yapilmadan fonksiyon biter.
     if (itemToDelete->canDrop() == false) {
-        std::cout << "UYARI: " << itemToDelete->getName() << " atilamaz! Bu onemli bir esya." << std::endl;
-        return false; 
+        return "You cannot discard [" + itemToDelete->getName() + "]!";
     }
 
-    std::cout << itemToDelete->getName() << " cantadan atildi." << std::endl;
-    delete itemToDelete;
-    inventory.erase(inventory.begin() + index);
+    // 3. SILME ISLEMI (Sadece yukaridaki if gecilirse calisir)
+    std::string itemName = itemToDelete->getName();
     
-    return true; 
+    delete itemToDelete; // Hafizadan sil
+    inventory.erase(inventory.begin() + index); // Listeden sil
+    
+    return "[" + itemName + "] discarded and lost.";
 }
 
 inline void Player::printInventory() {
