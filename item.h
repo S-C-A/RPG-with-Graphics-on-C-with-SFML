@@ -28,7 +28,7 @@ public:
     string getName() { return name; }
     string getInfo() { return info; }
 
-    virtual bool use(Player* user) = 0;
+    virtual string use(Player* user) = 0;
     
     virtual bool canDrop() { 
         return true; 
@@ -49,24 +49,26 @@ public:
         return new Consumable(*this); 
     }
 
-    bool use(Player* user) override {
+    string use(Player* user) override {
+        string report = "Used " + getName() + ". ";
+
         if (stats.healVal > 0)
         {
             user->heal(stats.healVal);
-            cout << getName() << " canini " << stats.healVal << " yeniledi." << endl;
+            report += "Healed " + to_string(stats.healVal) + " HP. ";
         }
         if (stats.dmgVal > 0)
         {
             user->hurt(stats.dmgVal);
-            cout << getName() << " canini " << stats.dmgVal << " aldi." << endl;
+            report += "Took " + to_string(stats.dmgVal) + " dmg. ";
         }
         if (stats.buffVal > 0)
         {
             user->buff(stats.buffVal);
-            cout << getName() << " gucunu " << stats.buffVal << " arttirdi." << endl;
+            report += "Power increased by " + to_string(stats.buffVal) + ". ";
         }
 
-        return true;
+        return report;
     }
 };
 
@@ -85,11 +87,9 @@ public:
         return new Armor(*this); 
     }
 
-    bool use(Player* user) override{
-
-        user->equipArmor(this); 
-        cout << getName() << " kusandin!" << endl;
-        return false;
+    string use(Player* user) override{
+        // Player.h'da bu fonksiyonu guncelleyecegiz
+        return user->equipArmor(this); 
     }
 };
 
@@ -108,11 +108,9 @@ public:
         return new Weapon(*this); 
     }
 
-    bool use(Player* user) override{
-
-        user->equipWeapon(this);
-        cout << getName() << " kusandin!" << endl;
-        return false;
+    string use(Player* user) override{
+        // Player.h'da bu fonksiyonu guncelleyecegiz
+        return user->equipWeapon(this);
     }
 };
 
@@ -129,10 +127,7 @@ public:
         return false; 
     }
 
-    bool use(Player* user) override {
-        cout << "Bu esya (" << getName() << ") dogrudan kullanilamaz." << endl;
-        cout << "Dogru yere gittiginde kendiliginden ise yarayacaktir." << endl;
-        
-        return false;
+    string use(Player* user) override {
+        return "You cannot use [" + getName() + "] directly.";
     }
 };

@@ -118,13 +118,11 @@ public:
 
     bool addItem(Item* item);
 
-    void equipArmor(Armor* newArmor);
-
-    void equipWeapon(Weapon* newWeapon);
+    std::string equipArmor(Armor* newArmor);   
+    std::string equipWeapon(Weapon* newWeapon);
+    std::string useItem(int index);           
 
     bool removeItem(int index);
-
-    void useItem(int index);
 
     void addExp(int amount) {
         if (lvl >= MAX_LVL) return;
@@ -230,25 +228,28 @@ inline bool Player::addItem(Item* item){
     if (inventory.size() < 10)
     {
         inventory.push_back(item);
-        std::cout <<"Item added to inventory" << std::endl;
         return true;
-    } else {
-        std::cout <<"Item couldn't be added to inventory" <<std::endl;
+    } else {        
         return false;
     }
 }
 
-inline void Player::useItem(int index){
+inline std::string Player::useItem(int index){
     if (index >= inventory.size()){
-        std::cout << "Gecersiz esya secimi!" << std::endl;
-        return;
+        return ""; // Hatali index, bos don
     }
     Item* itemToUse = inventory[index];
-    bool isConsumed = itemToUse->use(this);
-    if (isConsumed == true) {
+    
+    // Eşyanın ürettiği mesajı yakalıyoruz
+    std::string resultMessage = itemToUse->use(this);
+    
+    // Tüketilebilir ise silme mantığı (Aynı kalıyor)
+    if (dynamic_cast<Consumable*>(itemToUse)) {
         delete itemToUse;
         inventory.erase(inventory.begin() + index);
     }
+    
+    return resultMessage; // Mesajı yukarı iletiyoruz
 }
 
 inline std::string Player::getWeaponName() {
@@ -265,9 +266,10 @@ inline std::string Player::getArmorName() {
     return "None";
 }
 
-inline void Player::equipWeapon(Weapon* newWeapon){
-    if (newWeapon == nullptr) return;
+inline std::string Player::equipWeapon(Weapon* newWeapon){
+    if (newWeapon == nullptr) return "";
 
+    // Eski silahı çantadan listeden çıkar (silmeden)
     for (size_t i = 0; i < inventory.size(); i++) {
         if (inventory[i] == newWeapon) {
             inventory.erase(inventory.begin() + i);
@@ -275,19 +277,24 @@ inline void Player::equipWeapon(Weapon* newWeapon){
         }
     }
     
+    // Mesajı hazırlamaya başla
+    std::string msg = "Equipped " + newWeapon->getName() + ".";
+    
     Weapon* oldWeapon = equippedWeapon;
     equippedWeapon = newWeapon;
 
+    // Eski silah varsa çantaya koy ve mesaja ekle
     if (oldWeapon != nullptr)
     {
         inventory.push_back(oldWeapon);
-        std::cout << oldWeapon->getName() << " cantaya geri kondu." << std::endl;
+        msg += "\n" + oldWeapon->getName() + " returned to bag.";
     }
-
+    
+    return msg; // Mesajı döndür
 }
 
-inline void Player::equipArmor(Armor* newArmor){
-    if (newArmor == nullptr) return;
+inline std::string Player::equipArmor(Armor* newArmor){
+    if (newArmor == nullptr) return "";
 
     for (size_t i = 0; i < inventory.size(); i++) {
         if (inventory[i] == newArmor) {
@@ -296,14 +303,18 @@ inline void Player::equipArmor(Armor* newArmor){
         }
     }
     
+    std::string msg = "Equipped " + newArmor->getName() + ".";
+    
     Armor* oldArmor = equippedArmor;
     equippedArmor = newArmor;
 
     if (oldArmor != nullptr)
     {
         inventory.push_back(oldArmor);
-        std::cout << oldArmor->getName() << " cantaya geri kondu." << std::endl;
+        msg += "\n" + oldArmor->getName() + " returned to bag.";
     }
+    
+    return msg;
 }
 
 inline bool Player::removeItem(int index) {

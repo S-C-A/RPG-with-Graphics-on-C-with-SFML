@@ -62,49 +62,87 @@ void drawInventory(sf::RenderWindow& window, sf::Font& font, Player& player, flo
     }
 }
 
-// --- DAKTILO EFEKTI ---
+// --- DAKTILO EFEKTI (BEKLEMELI) ---
 struct Typewriter {
     std::string fullText;     
     std::string currentText;  
-    sf::Clock clock;          
+    sf::Clock charClock;      
+    sf::Clock waitClock;      
+    
     size_t charIndex = 0;     
     float speed = 0.025f;     
     bool isFinished = true;   
+    float waitTime = 1.5f; // Yazi bitince 1.5 sn bekle
 
     void start(std::string message) {
         fullText = "System:\n" + message; 
         currentText = "";                 
         charIndex = 0;                    
         isFinished = false;               
-        clock.restart();
+        charClock.restart();
     }
 
-    // Normal guncelleme (Harf harf yazar)
     void update(sf::Text& textObj) {
-        if (!isFinished && charIndex < fullText.size()) {
-            if (clock.getElapsedTime().asSeconds() > speed) {
+        if (charIndex < fullText.size()) {
+            if (charClock.getElapsedTime().asSeconds() > speed) {
                 currentText += fullText[charIndex]; 
                 charIndex++;
-                clock.restart(); 
+                charClock.restart(); 
+                
+                if (charIndex >= fullText.size()) {
+                    isFinished = true; 
+                    waitClock.restart(); 
+                }
             }
-        } else {
-            isFinished = true;
-        }
-        // DIKKAT: Burada textObj.setString yapmiyoruz artik!
-        // Metni sadece update ediyoruz, setString'i main loop'ta yapacagiz.
-        // Boylece hover sirasinda bu yaziyi ezebiliriz.
+        } 
     }
     
-    // Aninda bitir
     void finishInstant() {
         currentText = fullText;
         charIndex = fullText.size();
         isFinished = true;
+        waitClock.restart(); 
     }
 
-    // Guncel metni dondurur
-    std::string getCurrentText() {
-        return currentText;
+    bool isBusy() {
+        if (charIndex < fullText.size()) return true;
+        if (waitClock.getElapsedTime().asSeconds() < waitTime) return true;
+        return false;
+    }
+
+    std::string getCurrentText() { return currentText; }
+};
+
+// --- YERDEKI ESYA YAPISI (LOOT - SFML 3.0 UYUMLU) ---
+struct ItemTarget {
+    sf::RectangleShape shape;
+    std::string name;
+    
+    ItemTarget(std::string _name, float x, float y) {
+        name = _name;
+        shape.setSize({40.f, 40.f}); 
+        shape.setPosition({x, y});
+        shape.setFillColor(sf::Color::Yellow); 
+        shape.setOutlineThickness(2.f);
+        shape.setOutlineColor(sf::Color(200, 200, 0));
+        
+        // SFML 3.0: Derece donusumu
+        shape.setRotation(sf::degrees(45.f)); 
+    }
+
+    void update(sf::Vector2f mousePos) {
+        if (shape.getGlobalBounds().contains(mousePos)) {
+            // SFML 3.0: Vektor kullanimi
+            shape.setScale({1.1f, 1.1f});
+            shape.setFillColor(sf::Color::White); 
+        } else {
+            shape.setScale({1.0f, 1.0f});
+            shape.setFillColor(sf::Color::Yellow);
+        }
+    }
+
+    bool isClicked(sf::Vector2f mousePos) {
+        return shape.getGlobalBounds().contains(mousePos);
     }
 };
 
@@ -253,7 +291,7 @@ void updateButtonStates(std::vector<Button>& buttons, GameState state, Room* roo
 }
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Hover Descriptions", sf::State::Fullscreen);
+    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Ultimate Loot Edition", sf::State::Fullscreen);
     window.setFramerateLimit(60);
     window.setMouseCursorVisible(true);
     sf::View gameView(sf::FloatRect({0.f, 0.f}, {960.f, 540.f}));
@@ -305,10 +343,16 @@ int main() {
     inventoryBg.setFillColor(sf::Color(0, 0, 0, 210)); 
 
     std::vector<EnemyTarget> enemies; 
+    std::vector<ItemTarget> groundItems; // Yerdeki esyalar (Loot)
     float centerX = gameStartX + (leftWidth / 2.f); 
     float centerY = splitY / 2.f;
 
+    // Baslangic Update'i
     updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
+    groundItems.clear();
+    if (game.getCurrentRoom() && game.getCurrentRoom()->itemID != -1) {
+        groundItems.emplace_back("Loot", centerX, centerY + 50.f);
+    }
     
     sf::Text statText(font);
     statText.setCharacterSize(16);
@@ -365,14 +409,15 @@ int main() {
                 if (mousePress->button == sf::Mouse::Button::Left) {
                     sf::Vector2f clickPosF = window.mapPixelToCoords(mousePress->position); 
                     
-                    if (!typer.isFinished) {
-                        typer.finishInstant(); // Sadece state guncelle
-                        npcText.setString(typer.getCurrentText()); // Ekrani guncelle
+                    // --- 1. DAKTILO HIZLI GECME ---
+                    if (typer.isBusy() && !typer.isFinished) {
+                        typer.finishInstant(); 
+                        npcText.setString(typer.getCurrentText());
                         continue; 
                     }
 
+                    // --- 2. ENVANTER TIKLAMA ---
                     if (isInventoryOpen) {
-                        // Envanter Tiklama Kontrolu
                         float listStartX = gameStartX + 50.f;
                         float listStartY = 50.f + 40.f;
                         float lineHeight = 25.f;
@@ -389,19 +434,33 @@ int main() {
                         }
                     } 
                     else {
-                        // Envanter Kapaliysa Digerlerine Bak
+                        // --- 3. DUSMAN TIKLAMA ---
                         for (auto& enemy : enemies) { 
                             if (enemy.isClicked(clickPosF)) typer.start("Target: " + enemy.id);
                         }
+                        
+                        // --- 4. YERDEKI ESYAYI (LOOT) TOPLAMA (YENI) ---
+                        for (auto& item : groundItems) {
+                            if (item.isClicked(clickPosF)) {
+                                std::string msg = game.tryPickupItem();
+                                typer.start(msg);
+                                // Eger aldiysak ekrandan sil
+                                if (msg.find("Picked up") != std::string::npos) {
+                                    groundItems.clear();
+                                    updateStatText(statText, game.getPlayer());
+                                }
+                            }
+                        }
                     }
 
+                    // --- 5. BUTON TIKLAMA ---
                     for (auto& btn : buttons) { 
                         if (btn.isClicked(clickPosF)) {
                             // INV
                             if (btn.id == "INV") {
                                 isInventoryOpen = !isInventoryOpen; 
                                 if (isInventoryOpen) typer.start("Inventory Opened.");
-                                else typer.start("Inventory Closed.");
+                                else typer.start(game.lookAtRoom()); // Eski yerine dondur
                             }
                             // MAP
                             else if (btn.id == "MAP" && !isInventoryOpen) {
@@ -420,6 +479,12 @@ int main() {
 
                                     typer.start(moveMsg);
                                     updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
+                                    // Hareket edince yerdeki esyalari da guncelle (Varsa ciz, yoksa sil)
+                                    groundItems.clear();
+                                    if (game.getCurrentRoom() && game.getCurrentRoom()->itemID != -1) {
+                                        groundItems.emplace_back("Loot", centerX, centerY + 50.f);
+                                    }
+                                    
                                     updateButtonStates(buttons, currentState, game.getCurrentRoom(), buttonTexture, buttonGreyTexture);
                                 }
                                 else if (currentState == GameState::COMBAT) {
@@ -446,33 +511,32 @@ int main() {
             }
         }
         for (auto& btn : buttons) btn.update(mousePos, isMousePressed);
+        for (auto& item : groundItems) item.update(mousePos); // Loot update
         
         // --- TEXT GUNCELLEME VE HOVER MANTIGI ---
         
-        // 1. Once Daktiloyu Guncelle
         typer.update(npcText);
 
-        // 2. Eger Envanter Aciksa Hover Kontrolu Yap
         bool isHoveringItem = false;
-        if (isInventoryOpen) {
+        
+        if (isInventoryOpen && !typer.isBusy()) { 
             float listStartX = gameStartX + 50.f;
             float listStartY = 50.f + 40.f;
             float lineHeight = 25.f;
 
             if (mousePos.x >= listStartX && mousePos.x <= listStartX + 300.f) {
                 int hoverIndex = (int)((mousePos.y - listStartY) / lineHeight);
-                // Gecerli ve dolu bir esyanin uzerinde miyiz?
+                
                 if (hoverIndex >= 0 && hoverIndex < 10) {
                     std::string desc = game.getItemDesc(hoverIndex);
                     if (!desc.empty()) {
-                        npcText.setString("Description:\n" + desc); // Anlik goster
+                        npcText.setString("Description:\n" + desc); 
                         isHoveringItem = true;
                     }
                 }
             }
         }
 
-        // 3. Eger hover yoksa, normal daktilo metnini goster
         if (!isHoveringItem) {
             npcText.setString(typer.getCurrentText());
         }
@@ -483,6 +547,7 @@ int main() {
 
         window.draw(redPanel);
         for (const auto& enemy : enemies) window.draw(enemy.shape);
+        for (const auto& item : groundItems) window.draw(item.shape); // Loot ciz
 
         if (isInventoryOpen) {
             window.draw(inventoryBg);   

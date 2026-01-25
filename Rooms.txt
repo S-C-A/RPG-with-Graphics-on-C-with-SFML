@@ -9,7 +9,7 @@
 
 // 3. ODA: Pusu. Yer: Bos (-1). NPC: Yok (-1). Canavar: 2 Bandit (10, 10).
 // TEST: Sadece savas olmali.
-3,Ambush_Area,4,2,-1,-1,-1,-1,10,10
+3,Ambush_Area,4,2,-1,-1,1,-1,10,10
 
 // 4. ODA: Magaza. Yer: Iksir (1). NPC: Merchant (51). Canavar: Yok.
 // TEST: Once Tuccar konusmali (Auto-talk), sonra 'e' ile yerden iksir alinabilmeli.

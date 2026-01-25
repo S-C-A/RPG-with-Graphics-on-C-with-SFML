@@ -2,7 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <algorithm> // replace fonksiyonu icin gerekli
+#include <algorithm> 
 
 // BAGIMLILIKLAR
 #include "Player.h"
@@ -25,8 +25,6 @@ private:
 
     Room* currentRoom;
 
-    // --- METIN TEMIZLEYICI (YENI) ---
-    // "Dark_Corridor" gibi metinleri "Dark Corridor" haline cevirir.
     string formatText(string text) {
         std::replace(text.begin(), text.end(), '_', ' ');
         return text;
@@ -38,57 +36,36 @@ public:
         currentRoom = mapMgr.getRoom(1); 
         if (!currentRoom) std::cerr << "CRITICAL ERROR: Room 1 not found!" << std::endl;
 
+        // BASLANGIC ESYALARI
         Item* sword = itemMgr.getItem(100);
         if (sword) hero.addItem(sword);
 
-        // 2. Deri Zirh (ID: 200)
         Item* armor = itemMgr.getItem(200);
         if (armor) hero.addItem(armor);
 
-        // 3. Kucuk Iksir (ID: 1)
         Item* potion = itemMgr.getItem(1);
         if (potion) hero.addItem(potion);
 
         Item* key = itemMgr.getItem(300);
         if (key) hero.addItem(key);
     }
-        // Eşyanın açıklamasını döndürür (Hover için)
-        string getItemDesc(int index) {
-            if (index < 0 || index >= hero.getInventory().size()) return "";
-            return hero.getInventory()[index]->getInfo();
-        }
 
-        string playerUseItem(int index) {
-            // Hata Kontrolu: Index gecerli mi?
-            if (index < 0 || index >= hero.getInventory().size()) {
-                return ""; // Gecersiz tiklama
-            }
-        
-        Item* item = hero.getInventory()[index];
-        string itemName = item->getName();
-        string resultMsg = "";
-
-        // Ne tur bir esya olduguna bakalim (Mesaj icin)
-        // NOT: Dynamic cast, esyanin turunu kontrol eder.
-        if (dynamic_cast<Weapon*>(item) || dynamic_cast<Armor*>(item)) {
-            resultMsg = "Equipped [" + itemName + "]";
-        } else {
-            resultMsg = "Used [" + itemName + "]";
-        }
-
-        // Islemi Yap (Player.h icindeki useItem her seyi hallediyor: silme, kusanma vs.)
-        hero.useItem(index);
-
-        return resultMsg;
+    string getItemDesc(int index) {
+        if (index < 0 || index >= hero.getInventory().size()) return "";
+        return hero.getInventory()[index]->getInfo();
     }
 
-    // --- GETTERS ---
+    string playerUseItem(int index) {
+        if (index < 0 || index >= hero.getInventory().size()) return ""; 
+        return hero.useItem(index);
+    }
+
     Player& getPlayer() { return hero; }
     Room* getCurrentRoom() { return currentRoom; }
 
     // --- ACTIONS ---
 
-    // 1. Hareket Mantigi (Guncellendi)
+    // 1. Hareket Mantigi (DUZELTILDI)
     string attemptMove(int nextRoomID) {
         if (nextRoomID == -1) {
             return "The path is blocked.";
@@ -97,8 +74,10 @@ public:
         Room* next = mapMgr.getRoom(nextRoomID);
         if (next) {
             currentRoom = next;
-            // Artik "Moved to:" demiyoruz, direkt odanin ismini/aciklamasini veriyoruz.
-            return formatText(currentRoom->info);
+            // DUZELTME BURADA:
+            // Eskiden sadece 'currentRoom->info' donduruyorduk.
+            // Simdi 'lookAtRoom()' cagiriyoruz ki yerdeki esya bilgisini de eklesin.
+            return lookAtRoom(); 
         }
         return "Unknown path.";
     }
@@ -110,6 +89,9 @@ public:
             if (item) {
                 if (hero.addItem(item)) {
                     currentRoom->itemID = -1; 
+                    // Esyayi aldiktan sonra odaya tekrar bakalim (yazi guncellensin)
+                    // "Picked up X" yazisi ustune odanin temiz hali gelir.
+                    // Ama burada sadece bilgilendirme donelim, typer halleder.
                     return "Picked up [" + item->getName() + "]";
                 } else {
                     delete item; 
@@ -120,10 +102,23 @@ public:
         return "Nothing here.";
     }
 
-    // 3. Baslangic Bakisi (Guncellendi)
+    // 3. Odaya Bakis (Akilli Versiyon)
     string lookAtRoom() {
-        if(currentRoom) return formatText(currentRoom->info);
-        return "Void.";
+        if(!currentRoom) return "Void.";
+
+        // Odanin kendi aciklamasi
+        string desc = formatText(currentRoom->info);
+
+        // Yerde esya var mi?
+        if (currentRoom->itemID != -1) {
+            Item* tempItem = itemMgr.getItem(currentRoom->itemID);
+            if (tempItem) {
+                // Alt satira esya bilgisini ekle
+                desc += "\nYou see a [" + tempItem->getName() + "] here.";
+                delete tempItem; 
+            }
+        }
+        return desc;
     }
     
     // 4. Cheat
