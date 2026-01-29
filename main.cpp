@@ -15,17 +15,13 @@ enum class GameState {
 const sf::Color BORDEAUX_COLOR = sf::Color(110, 0, 0); 
 
 // --- YARDIMCI FONKSIYON: METIN KAYDIRMA (TEXT WRAPPING) ---
-// Bu fonksiyon, metin belirtilen genisligi (width) gecerse
-// otomatik olarak alt satira (\n) gecmesini saglar.
 std::string wrapText(sf::String text, int width, const sf::Font& font, int charSize) {
     std::string wrappedText = "";
     std::string currentLine = "";
     
-    // Metni kelimelere boluyoruz
     std::stringstream ss(text.toAnsiString());
     std::string word;
     
-    // SFML Text nesnesi ile uzunluk olcumu yapacagiz
     sf::Text tempText(font);
     tempText.setCharacterSize(charSize);
 
@@ -33,17 +29,13 @@ std::string wrapText(sf::String text, int width, const sf::Font& font, int charS
         std::string testLine = currentLine + (currentLine.empty() ? "" : " ") + word;
         tempText.setString(testLine);
         
-        // Eger kelimeyi ekleyince satir genisligi siniri asiyorsa
         if (tempText.getLocalBounds().size.x > width) {
-            // Mevcut satiri bitir ve alt satira gec
             wrappedText += currentLine + "\n";
-            currentLine = word; // Yeni satira bu kelimeyle basla
+            currentLine = word; 
         } else {
-            // Sigmazsa devam et
             currentLine = testLine;
         }
     }
-    // Kalan son satiri ekle
     wrappedText += currentLine;
     return wrappedText;
 }
@@ -313,16 +305,17 @@ struct Button {
     }
 };
 
-// --- BUTON DURUMLARINI GUNCELLEME (DUZELTILMIS) ---
-// Sorun: Butonlar konusma bitince gri kaliyordu.
-// Cozum: Buton listesinin 4. ve 5. elemanlari (MAP ve INV) artik manuel olarak duzeltiliyor.
+// --- BUTON DURUMLARINI GUNCELLEME (GRI MAP/INV DESTEGI EKLENDI) ---
 void updateButtonStates(std::vector<Button>& buttons, GameState state, Room* room, 
-                        const sf::Texture& normalTex, const sf::Texture& greyTex) {
+                        const sf::Texture& normalTex, const sf::Texture& greyTex,
+                        const sf::Texture& mapTex, const sf::Texture& mapGrayTex,
+                        const sf::Texture& invTex, const sf::Texture& invGrayTex) {
     
-    // 1. Once tum butonlari (Ozellikle MAP ve INV'yi) normale donduruyoruz
+    // (YENI) MAP ve INV butonlarini varsayilan olarak "AKTIF" yap (Renkli)
+    // EXPLORING moduna gecildiginde otomatik olarak renkleri duzelecek.
     if (buttons.size() >= 6) {
-        buttons[4].setStyle(true, normalTex); // MAP
-        buttons[5].setStyle(true, normalTex); // INV
+        buttons[4].setStyle(true, mapTex); // MAP Renkli
+        buttons[5].setStyle(true, invTex); // INV Renkli
     }
 
     if (state == GameState::EXPLORING) {
@@ -338,7 +331,7 @@ void updateButtonStates(std::vector<Button>& buttons, GameState state, Room* roo
         }
     } 
     else if (state == GameState::COMBAT) {
-        for(int i=0; i<4; i++) { // Sadece ilk 4 butonu degistir
+        for(int i=0; i<4; i++) { 
             buttons[i].setStyle(true, normalTex);
         }
         buttons[0].setLabelText("ATK");
@@ -352,17 +345,16 @@ void updateButtonStates(std::vector<Button>& buttons, GameState state, Room* roo
             buttons[i].setLabelText("");
             buttons[i].setStyle(false, greyTex);
         }
-        // MAP ve INV de pasif olsun istenirse buraya eklenebilir,
-        // ama simdilik onlari da gri yapalim ki odak diyalogda olsun.
+        // MAP ve INV de pasif (GRI TEXTURE ILE)
         if (buttons.size() >= 6) {
-            buttons[4].setStyle(false, greyTex);
-            buttons[5].setStyle(false, greyTex);
+            buttons[4].setStyle(false, mapGrayTex); // Gri Map
+            buttons[5].setStyle(false, invGrayTex); // Gri Inv
         }
     }
 }
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Fixed UI", sf::State::Fullscreen);
+    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Final Polish", sf::State::Fullscreen);
     window.setFramerateLimit(60);
     window.setMouseCursorVisible(true);
     sf::View gameView(sf::FloatRect({0.f, 0.f}, {960.f, 540.f}));
@@ -381,8 +373,14 @@ int main() {
     sf::Texture dialogTexture; if (!dialogTexture.loadFromFile("textures/Textbox[Final].png")) return -1;
     sf::Texture statTexture; if (!statTexture.loadFromFile("textures/Statbox[Final].png")) return -1;
     sf::Texture buttonTexture; if (!buttonTexture.loadFromFile("textures/Button[Final].png")) return -1;
+    
+    // (YENI) Gri Texturelar
     sf::Texture inventoryTexture; if (!inventoryTexture.loadFromFile("textures/Inventory[Final].png")) return -1;
+    sf::Texture inventoryGrayTexture; if (!inventoryGrayTexture.loadFromFile("textures/Inventory[Gray].png")) { inventoryGrayTexture = inventoryTexture; } // Hata olursa normali kullan
+    
     sf::Texture mapTexture; if (!mapTexture.loadFromFile("textures/Map[Final].png")) { mapTexture = inventoryTexture; }
+    sf::Texture mapGrayTexture; if (!mapGrayTexture.loadFromFile("textures/Map[Gray].png")) { mapGrayTexture = mapTexture; } // Hata olursa normali kullan
+
     sf::Texture buttonGreyTexture; if (!buttonGreyTexture.loadFromFile("textures/Button[Grey].png")) return -1;
 
     // --- LAYOUT ---
@@ -447,8 +445,7 @@ int main() {
     npcText.setFillColor(BORDEAUX_COLOR); 
     npcText.setPosition({dialogSprite.getPosition().x + textPadX, dialogSprite.getPosition().y + textPadY}); 
     
-    // ILK METIN (Satir kaydirma uygulanarak)
-    // 500.f genislik siniri veriyoruz (Metin kutusunun genisligi kadar)
+    // ILK METIN (Wrap - 480px genislik)
     typer.start(wrapText(game.lookAtRoom(), 480, font, 16));
 
     // --- DIYALOG SECENEKLERI LISTESI ---
@@ -471,7 +468,12 @@ int main() {
             sf::Vector2f(colWidth, yellowH)
         );
     }
-    updateButtonStates(buttons, currentState, game.getCurrentRoom(), buttonTexture, buttonGreyTexture);
+    
+    // Baslangic buton durumu (Gri texturelar ile birlikte)
+    updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
+                       buttonTexture, buttonGreyTexture, 
+                       mapTexture, mapGrayTexture, 
+                       inventoryTexture, inventoryGrayTexture);
 
     float purpleH = areaHeight / 2.f;        
     buttons.emplace_back("MAP", "", mapTexture, font, sf::Vector2f(actionStartX + colWidth, actionStartY), sf::Vector2f(colWidth, purpleH));
@@ -510,7 +512,6 @@ int main() {
                             if (mousePress->button == sf::Mouse::Button::Left) {
                                 std::string result = game.playerUseItem(clickedIndex);
                                 if (!result.empty()) {
-                                    // Donen mesaji sar (Wrap)
                                     typer.start(wrapText(result, 480, font, 16)); 
                                     updateStatText(statText, game.getPlayer()); 
                                 }
@@ -529,25 +530,30 @@ int main() {
                 if (currentState == GameState::DIALOGUE && !typer.isBusy()) {
                     for (const auto& opt : dialogueOptions) {
                         if (opt.text.getGlobalBounds().contains(clickPosF)) {
-                            // Backend'e secimi gonder
                             std::string response = game.selectDialogueOption(opt.index);
                             
-                            // Bos donerse konusma bitti
+                            // DIYALOG BITTI
                             if (response.empty()) {
                                 currentState = GameState::EXPLORING;
                                 typer.start(wrapText(game.lookAtRoom(), 480, font, 16));
-                                updateButtonStates(buttons, currentState, game.getCurrentRoom(), buttonTexture, buttonGreyTexture);
+                                // Butonlari geri dondur (Renkli)
+                                updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
+                                                   buttonTexture, buttonGreyTexture, 
+                                                   mapTexture, mapGrayTexture, 
+                                                   inventoryTexture, inventoryGrayTexture);
                                 dialogueOptions.clear(); 
                             } 
-                            // Savas Baslatma
+                            // SAVAS BASLADI
                             else if (response == "COMBAT_START") {
                                 currentState = GameState::COMBAT;
                                 typer.start("ENEMIES ATTACK!");
                                 dialogueOptions.clear();
-                                updateButtonStates(buttons, currentState, game.getCurrentRoom(), buttonTexture, buttonGreyTexture);
+                                updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
+                                                   buttonTexture, buttonGreyTexture, 
+                                                   mapTexture, mapGrayTexture, 
+                                                   inventoryTexture, inventoryGrayTexture);
                             }
                             else {
-                                // Yeni metni yaz (Wrap uygulayarak)
                                 typer.start(wrapText(response, 480, font, 16));
                                 dialogueOptions.clear(); 
                                 updateStatText(statText, game.getPlayer());
@@ -584,7 +590,7 @@ int main() {
                                     else if (btn.id == "BTN_3") moveMsg = game.attemptMove(current->s);
 
                                     if (!moveMsg.empty()) {
-                                        typer.start(wrapText(moveMsg, 480, font, 16)); // Odayi tarif et (Wrapped)
+                                        typer.start(wrapText(moveMsg, 480, font, 16)); 
                                         updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
                                         
                                         groundItems.clear();
@@ -598,7 +604,7 @@ int main() {
                                             npcs.emplace_back(movedNPC->getName(), centerX + 100.f, centerY);
                                         }
                                         
-                                        // (YENI) OTOMATIK DIYALOG KONTROLU
+                                        // OTOMATIK DIYALOG
                                         NPC* autoNPC = game.checkForAutoDialogue();
                                         if (autoNPC) {
                                             currentState = GameState::DIALOGUE;
@@ -606,7 +612,10 @@ int main() {
                                             typer.start(wrapText(startText, 480, font, 16));
                                         }
 
-                                        updateButtonStates(buttons, currentState, game.getCurrentRoom(), buttonTexture, buttonGreyTexture);
+                                        updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
+                                                           buttonTexture, buttonGreyTexture, 
+                                                           mapTexture, mapGrayTexture, 
+                                                           inventoryTexture, inventoryGrayTexture);
                                     }
                                 }
                                 else if (currentState == GameState::COMBAT) {
@@ -644,7 +653,12 @@ int main() {
                                     currentState = GameState::DIALOGUE;
                                     std::string startText = game.startDialogue(clickedNPC);
                                     typer.start(wrapText(startText, 480, font, 16));
-                                    updateButtonStates(buttons, currentState, game.getCurrentRoom(), buttonTexture, buttonGreyTexture);
+                                    
+                                    // Butonlari diyalog moduna al (Gri)
+                                    updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
+                                                       buttonTexture, buttonGreyTexture, 
+                                                       mapTexture, mapGrayTexture, 
+                                                       inventoryTexture, inventoryGrayTexture);
                                 }
                             }
                         }
@@ -664,14 +678,11 @@ int main() {
         if (currentState == GameState::DIALOGUE && !typer.isBusy() && dialogueOptions.empty()) {
             std::vector<std::string> opts = game.getDialogueOptions();
             
-            // DUZELTME: Secenekler daha yukaridan baslasin (Metin kutusunun icinden)
             float startX = dialogSprite.getPosition().x + 50.f; 
-            float startY = dialogSprite.getPosition().y + 68.f; // 80'den 60'a cektik, daha yukarida.
+            float startY = dialogSprite.getPosition().y + 68.f; 
             
             for (size_t i = 0; i < opts.size(); i++) {
-                // Her secenegi wrapText ile kontrol etmek zor olur (tek satir olmali)
-                // O yuzden secenek metinlerini kisa tutmaya calisacagiz.
-                dialogueOptions.emplace_back(font, opts[i], i, startX, startY + (i * 15.f)); // Aralik 30'dan 25'e dustu
+                dialogueOptions.emplace_back(font, opts[i], i, startX, startY + (i * 15.f)); 
             }
         }
 
@@ -694,7 +705,6 @@ int main() {
                 if (hoverIndex >= 0 && hoverIndex < 10) {
                     std::string desc = game.getItemDesc(hoverIndex);
                     if (!desc.empty()) {
-                        // Esya aciklamasini da sar (Wrap)
                         npcText.setString("Description:\n" + wrapText(desc, 480, font, 16)); 
                         isHoveringItem = true;
                     }
