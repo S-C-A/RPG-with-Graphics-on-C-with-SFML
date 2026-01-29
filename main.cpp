@@ -449,7 +449,7 @@ int main() {
     
     // ILK METIN (Satir kaydirma uygulanarak)
     // 500.f genislik siniri veriyoruz (Metin kutusunun genisligi kadar)
-    typer.start(wrapText(game.lookAtRoom(), 500, font, 16));
+    typer.start(wrapText(game.lookAtRoom(), 480, font, 16));
 
     // --- DIYALOG SECENEKLERI LISTESI ---
     std::vector<VisualOption> dialogueOptions; 
@@ -511,14 +511,14 @@ int main() {
                                 std::string result = game.playerUseItem(clickedIndex);
                                 if (!result.empty()) {
                                     // Donen mesaji sar (Wrap)
-                                    typer.start(wrapText(result, 500, font, 16)); 
+                                    typer.start(wrapText(result, 480, font, 16)); 
                                     updateStatText(statText, game.getPlayer()); 
                                 }
                             }
                             else if (mousePress->button == sf::Mouse::Button::Right) {
                                 std::string result = game.playerDropItem(clickedIndex);
                                 if (!result.empty()) {
-                                    typer.start(wrapText(result, 500, font, 16));
+                                    typer.start(wrapText(result, 480, font, 16));
                                 }
                             }
                         }
@@ -535,7 +535,7 @@ int main() {
                             // Bos donerse konusma bitti
                             if (response.empty()) {
                                 currentState = GameState::EXPLORING;
-                                typer.start(wrapText(game.lookAtRoom(), 500, font, 16));
+                                typer.start(wrapText(game.lookAtRoom(), 480, font, 16));
                                 updateButtonStates(buttons, currentState, game.getCurrentRoom(), buttonTexture, buttonGreyTexture);
                                 dialogueOptions.clear(); 
                             } 
@@ -548,7 +548,7 @@ int main() {
                             }
                             else {
                                 // Yeni metni yaz (Wrap uygulayarak)
-                                typer.start(wrapText(response, 500, font, 16));
+                                typer.start(wrapText(response, 480, font, 16));
                                 dialogueOptions.clear(); 
                                 updateStatText(statText, game.getPlayer());
                             }
@@ -566,7 +566,7 @@ int main() {
                             if (btn.id == "INV") {
                                 isInventoryOpen = !isInventoryOpen; 
                                 if (isInventoryOpen) typer.start("Inventory Opened.");
-                                else typer.start(wrapText(game.lookAtRoom(), 500, font, 16));
+                                else typer.start(wrapText(game.lookAtRoom(), 480, font, 16));
                             }
                             // MAP
                             else if (btn.id == "MAP" && !isInventoryOpen) {
@@ -584,7 +584,7 @@ int main() {
                                     else if (btn.id == "BTN_3") moveMsg = game.attemptMove(current->s);
 
                                     if (!moveMsg.empty()) {
-                                        typer.start(wrapText(moveMsg, 500, font, 16)); // Odayi tarif et (Wrapped)
+                                        typer.start(wrapText(moveMsg, 480, font, 16)); // Odayi tarif et (Wrapped)
                                         updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
                                         
                                         groundItems.clear();
@@ -603,7 +603,7 @@ int main() {
                                         if (autoNPC) {
                                             currentState = GameState::DIALOGUE;
                                             std::string startText = game.startDialogue(autoNPC);
-                                            typer.start(wrapText(startText, 500, font, 16));
+                                            typer.start(wrapText(startText, 480, font, 16));
                                         }
 
                                         updateButtonStates(buttons, currentState, game.getCurrentRoom(), buttonTexture, buttonGreyTexture);
@@ -643,7 +643,7 @@ int main() {
                                 if (clickedNPC) {
                                     currentState = GameState::DIALOGUE;
                                     std::string startText = game.startDialogue(clickedNPC);
-                                    typer.start(wrapText(startText, 500, font, 16));
+                                    typer.start(wrapText(startText, 480, font, 16));
                                     updateButtonStates(buttons, currentState, game.getCurrentRoom(), buttonTexture, buttonGreyTexture);
                                 }
                             }
@@ -666,7 +666,7 @@ int main() {
             
             // DUZELTME: Secenekler daha yukaridan baslasin (Metin kutusunun icinden)
             float startX = dialogSprite.getPosition().x + 50.f; 
-            float startY = dialogSprite.getPosition().y + 70.f; // 80'den 60'a cektik, daha yukarida.
+            float startY = dialogSprite.getPosition().y + 68.f; // 80'den 60'a cektik, daha yukarida.
             
             for (size_t i = 0; i < opts.size(); i++) {
                 // Her secenegi wrapText ile kontrol etmek zor olur (tek satir olmali)
@@ -695,7 +695,7 @@ int main() {
                     std::string desc = game.getItemDesc(hoverIndex);
                     if (!desc.empty()) {
                         // Esya aciklamasini da sar (Wrap)
-                        npcText.setString("Description:\n" + wrapText(desc, 500, font, 16)); 
+                        npcText.setString("Description:\n" + wrapText(desc, 480, font, 16)); 
                         isHoveringItem = true;
                     }
                 }
