@@ -194,7 +194,8 @@ public:
         for (const auto& itemData : stock) {
             Item* temp = itemMgr.getItem(itemData.itemID);
             if (temp) {
-                string entry = temp->getName() + " (" + to_string(itemData.price) + " G)";
+                // Use temp->getPrice() intrinsic value instead of itemData.price
+                string entry = temp->getName() + " (" + to_string(temp->getPrice()) + " G)";
                 list.push_back(entry);
                 delete temp; 
             }
@@ -209,12 +210,17 @@ public:
         const auto& stock = activeMerchant->getShopInventory();
         if (index < 0 || index >= stock.size()) return "Invalid item.";
 
-        int price = stock[index].price;
+        // Instantiate item first to check its true value
+        Item* newItem = itemMgr.getItem(stock[index].itemID);
+        if (!newItem) return "Item error.";
+
+        int price = newItem->getPrice(); 
+
         if (hero.getGold() < price) {
+            delete newItem; // Clean up since we won't buy it
             return "Not enough gold!";
         }
 
-        Item* newItem = itemMgr.getItem(stock[index].itemID);
         if (hero.addItem(newItem)) {
             hero.goldChange(-price);
             return "Bought " + newItem->getName() + "!";

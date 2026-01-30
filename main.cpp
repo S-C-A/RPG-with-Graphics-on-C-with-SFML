@@ -359,7 +359,7 @@ void updateButtonStates(std::vector<Button>& buttons, GameState state, Room* roo
         
         if (buttons.size() >= 6) {
             buttons[4].setStyle(false, mapGrayTex); 
-            buttons[5].setStyle(true, invTex); 
+            buttons[5].setStyle(false, invGrayTex);  
         }
     }
 }
@@ -621,7 +621,7 @@ int main() {
                     for (auto& btn : buttons) { 
                         if (btn.isClicked(clickPosF)) {
                             // INV
-                            if (btn.id == "INV") {
+                            if (btn.id == "INV" && currentState == GameState::EXPLORING) {
                                 isInventoryOpen = !isInventoryOpen; 
                                 if (isInventoryOpen) typer.start("Inventory Opened.");
                                 else typer.start(wrapText(game.lookAtRoom(), 480, font, 16));
@@ -631,7 +631,7 @@ int main() {
                                 typer.start("Map system active.");
                             }
                             // ACTIONS
-                            else if (!isInventoryOpen) {
+                            else if (!isInventoryOpen || currentState == GameState::SHOP) {
                                 if (currentState == GameState::EXPLORING) {
                                     Room* current = game.getCurrentRoom();
                                     std::string moveMsg = "";
@@ -802,6 +802,7 @@ int main() {
         }
 
         bool isHoveringItem = false;
+        bool preventTyperFallback = false;
         
         // --- HOVER MANTIGI (DUZELTILDI) ---
         if (isInventoryOpen) { 
@@ -814,24 +815,34 @@ int main() {
                 
                 // Hover indeksi degisti mi?
                 if (hoverIndex != lastHoverIndex) {
+                    // Eger onceden bir seyin uzerinde degilsek (yeni girdi) delay koy.
+                    // Ama item'dan item'a geciyorsak (lastHoverIndex != -1) delay koyma, akici olsun.
+                    if (lastHoverIndex == -1) {
+                         hoverClock.restart(); 
+                    }
                     lastHoverIndex = hoverIndex;
-                    hoverClock.restart(); 
                 }
 
                 if (hoverIndex >= 0 && hoverIndex < 10) {
-                    // Mesaj timer'i 2 saniyeyi gectiyse VE hover uzerinde 0.2 saniye durulduysa
-                    if (messageTimer.getElapsedTime().asSeconds() > 2.0f && hoverClock.getElapsedTime().asSeconds() > 0.2f) {
+                    // Mesaj timer'i 2 saniyeyi gectiyse
+                    if (messageTimer.getElapsedTime().asSeconds() > 2.0f) {
                         
-                        std::string desc = game.getItemDesc(hoverIndex);
-                        if (!desc.empty()) {
-                            if (isSellingMode && currentState == GameState::SHOP) {
-                                int val = game.getItemValue(hoverIndex);
-                                int sellPrice = (val * 3) / 5;
-                                desc += "\n\nSell Price: " + std::to_string(sellPrice) + " G";
+                        // Hover suresi doldu mu?
+                        if (hoverClock.getElapsedTime().asSeconds() > 0.2f) {
+                            std::string desc = game.getItemDesc(hoverIndex);
+                            if (!desc.empty()) {
+                                if (isSellingMode && currentState == GameState::SHOP) {
+                                    int val = game.getItemValue(hoverIndex);
+                                    int sellPrice = (val * 3) / 5;
+                                    desc += "\n\nSell Price: " + std::to_string(sellPrice) + " G";
+                                }
+                                
+                                npcText.setString("Description:\n" + wrapText(desc, 480, font, 16)); 
+                                isHoveringItem = true;
                             }
-                            
-                            npcText.setString("Description:\n" + wrapText(desc, 480, font, 16)); 
-                            isHoveringItem = true;
+                        } else {
+                            // Mesaj suresi doldu ama hover suresi dolmadi -> Eski mesaji gosterme, bosalt.
+                            preventTyperFallback = true;
                         }
                     }
                 }
@@ -841,7 +852,8 @@ int main() {
         }
 
         if (!isHoveringItem) {
-            npcText.setString(typer.getCurrentText());
+            if (preventTyperFallback) npcText.setString("");
+            else npcText.setString(typer.getCurrentText());
         }
 
         // --- DRAW ---
