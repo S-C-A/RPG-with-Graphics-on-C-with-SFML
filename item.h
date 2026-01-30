@@ -15,10 +15,11 @@ class Item {
     int ID;
     string name;
     string info;
+    int value;
 
 public:
-    Item() : ID(0), name(""), info(""){}
-    Item(int a, string b, string c) : ID(a), name(b), info(c){}
+    Item(int a, string b, string c, int val = 0) : ID(a), name(b), info(c), value(val){}
+    Item() : ID(0), name(""), info(""), value(0){}
 
     virtual ~Item() {}
 
@@ -27,6 +28,7 @@ public:
     int getID() { return ID; }
     string getName() { return name; }
     string getInfo() { return info; }
+    int getPrice() const { return value; }
 
     virtual string use(Player* user) = 0;
     
@@ -41,7 +43,7 @@ private:
 
 public:
     Consumable() : Item() {}    
-    Consumable(int a, string b, string c, ItemStats _stats) : Item(a, b, c){
+    Consumable(int a, string b, string c, int _val, ItemStats _stats) : Item(a, b, c, _val){
         stats = _stats;
     }
 
@@ -77,7 +79,7 @@ private:
     int defense;
 
 public:
-    Armor(int ID, string name, string info, int def) : Item(ID, name, info){
+    Armor(int ID, string name, string info, int val, int def) : Item(ID, name, info, val){
         defense = def;
     }
 
@@ -98,7 +100,7 @@ private:
     int power;
 
 public:
-    Weapon(int ID, string name, string info, int dmg) : Item(ID, name, info){
+    Weapon(int ID, string name, string info, int val, int dmg) : Item(ID, name, info, val){
         power = dmg;
     }
 
@@ -117,7 +119,7 @@ public:
 class KeyItem : public Item {
 public:
     
-    KeyItem(int id, string name, string desc) : Item(id, name, desc) {}
+    KeyItem(int id, string name, string desc, int val = 0) : Item(id, name, desc, val) {}
 
     Item* clone() const override {
         return new KeyItem(*this); 

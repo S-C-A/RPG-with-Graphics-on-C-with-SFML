@@ -44,5 +44,5 @@ NODE 0 Psst... Hey you. Do you have coin?
 CHOICE 1 : Show me your wares.
 CHOICE -1 : Not interested.
 
-NODE 1 Take a look. No refunds!
+NODE 1 
 ACTION OPEN_SHOP 0  <-- Dukkan menusunu acar

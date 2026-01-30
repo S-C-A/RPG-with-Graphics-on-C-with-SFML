@@ -11,7 +11,7 @@
 #include "room.h"
 #include "combat.h" 
 #include "NPCManager.h" 
-// Dont forget to add new inventory full menu when managing enemy loot.
+
 using namespace std;
 
 class Game {
@@ -32,6 +32,9 @@ private:
 
     NPC* activeNPC = nullptr;           // Su an kiminle konusuyoruz?
     DialogueNode* activeNode = nullptr; // Hangi cumledeyiz?
+    
+    // (YENI) SHOP STATE
+    NPC* activeMerchant = nullptr; // Su an kimden alisveris yapiyoruz?
 
 public:
     Game() {
@@ -58,13 +61,17 @@ public:
         return hero.getInventory()[index]->getInfo();
     }
 
+    int getItemValue(int index) {
+        if (index < 0 || index >= hero.getInventory().size()) return 0;
+        return hero.getInventory()[index]->getPrice();
+    }
+
     string playerUseItem(int index) {
         if (index < 0 || index >= hero.getInventory().size()) return ""; 
         return hero.useItem(index);
     }
 
     string playerDropItem(int index) {
-        // Player.h icindeki guncelledigimiz fonksiyonu cagirir ve mesaji doner
         return hero.removeItem(index);
     }
 
@@ -80,102 +87,73 @@ public:
 
     // --- DIYALOG SISTEMI ---
 
-    //Ilk defa konusulmus mu kontrol
     NPC* checkForAutoDialogue() {
         if (currentRoom && currentRoom->npcID != -1) {
             NPC* npc = npcMgr.getNPC(currentRoom->npcID);
-            
-            // Eger NPC varsa VE daha once tanismadiysak (hasMet == false)
             if (npc && !npc->hasMet()) {
-                // Tanisma durumunu guncelle (Artik tanistik)
                 npc->setMet(true);
-                return npc; // Konusulacak NPC'yi dondur
+                return npc; 
             }
         }
-        return nullptr; // Otomatik konusma yok
+        return nullptr; 
     }
 
-    // A) Konusmayi Baslat
-    // Geriye NPC'nin ilk cumlesini doner.
     string startDialogue(NPC* npc) {
         if (!npc) return "";
-        
         activeNPC = npc;
-        // NPC'nin hafizasindaki kaldigi yerden (Root) basla
         activeNode = activeNPC->getDialogue(activeNPC->getRootNode());
-        
         if (activeNode) return activeNode->npcText;
         return "...";
     }
 
-    // B) Secenek Metinlerini Al (Main.cpp ekrana yazdirmak icin kullanacak)
     vector<string> getDialogueOptions() {
         vector<string> labels;
         if (!activeNode) return labels;
-
         for (const auto& opt : activeNode->options) {
-            labels.push_back(opt.text); // Sadece metinleri gonderiyoruz
+            labels.push_back(opt.text); 
         }
-        
-        // Eger hic secenek yoksa ama konusma bitmediyse "Devam" secenegi koy
         if (labels.empty()) {
             labels.push_back("Continue...");
         }
         return labels;
     }
 
-    // C) Oyuncu bir secenegi sectiginde ne olacak?
-    // index: Oyuncunun tikladigi siradaki secenek (0, 1, 2...)
-    // Donus: Yeni NPC metni (veya diyalog bittiyse BOS string)
     string selectDialogueOption(int index) {
         if (!activeNPC || !activeNode) return "";
-
         int nextID = -1;
-
-        // Secenek varsa, secilenin nereye gittigine bak (NextNodeID)
         if (!activeNode->options.empty()) {
             if (index >= 0 && index < activeNode->options.size()) {
                 nextID = activeNode->options[index].nextNodeID;
             } else {
-                return ""; // Hatali tiklama
+                return ""; 
             }
-        } 
-        // Secenek yoksa (Continue durumu), genelde -1 ile biter veya ozel mantik
-        else {
+        } else {
              nextID = -1; 
         }
 
-        // --- DIYALOG BITISI ---
         if (nextID == -1) {
             activeNPC = nullptr;
             activeNode = nullptr;
-            return ""; // Bos string donmesi "Konusma Bitti" demektir.
+            return ""; 
         }
 
-        // --- YENI NODE GECIS ---
         activeNode = activeNPC->getDialogue(nextID);
-        
-        // --- OLAYLARI ISLE (Item verme, Heal vb.) ---
         return processNodeEvents(activeNode);
     }
 
-    // D) Olay Isleyici (Internal - Backend)
     string processNodeEvents(DialogueNode* node) {
         if (!node) return "";
 
-        // 1. Root Degistirme (Hikaye ilerlemesi - Orn: Artik beni tanidin)
         if (node->changeRootTo != -1) {
             activeNPC->setRootNode(node->changeRootTo);
         }
 
-        // 2. Aksiyonlar
         if (node->actionType == EVENT_GIVE_ITEM) {
             Item* gift = itemMgr.getItem(node->actionValue);
             if (gift) {
                 if (hero.addItem(gift)) {
-                    // Basarili
                 } else {
-                    currentRoom->itemID = node->actionValue; // Yer yoksa yere at
+                    currentRoom->itemID = node->actionValue; 
                     delete gift;
                 }
             }
@@ -184,41 +162,114 @@ public:
             hero.heal(node->actionValue);
         }
         else if (node->actionType == EVENT_START_COMBAT) {
-            return "COMBAT_START"; // Main.cpp bunu yakalayip savas moduna gececek
+            return "COMBAT_START"; 
+        }
+        else if (node->actionType == EVENT_OPEN_SHOP) {
+            return "SHOP_OPEN"; // Main.cpp bunu yakalayip SHOP moduna gececek
         }
 
         return node->npcText;
     }
 
+    // --- (YENI) SHOP SISTEMI ---
+
+    // 1. Shop Moduna Gecis (Hazirlik)
+    void enterShop() {
+        if (activeNPC) {
+            activeMerchant = activeNPC;
+        }
+    }
+
+    // 2. Dukkandan Cikis
+    void exitShop() {
+        activeMerchant = nullptr;
+    }
+
+    // 3. Urun Listesini String Olarak Al (UI icin)
+    vector<string> getShopItems() {
+        vector<string> list;
+        if (!activeMerchant) return list;
+
+        const auto& stock = activeMerchant->getShopInventory();
+        for (const auto& itemData : stock) {
+            Item* temp = itemMgr.getItem(itemData.itemID);
+            if (temp) {
+                string entry = temp->getName() + " (" + to_string(itemData.price) + " G)";
+                list.push_back(entry);
+                delete temp; 
+            }
+        }
+        return list;
+    }
+
+    // 4. Satin Alma Islemi
+    string buyShopItem(int index) {
+        if (!activeMerchant) return "Shop closed.";
+
+        const auto& stock = activeMerchant->getShopInventory();
+        if (index < 0 || index >= stock.size()) return "Invalid item.";
+
+        int price = stock[index].price;
+        if (hero.getGold() < price) {
+            return "Not enough gold!";
+        }
+
+        Item* newItem = itemMgr.getItem(stock[index].itemID);
+        if (hero.addItem(newItem)) {
+            hero.goldChange(-price);
+            return "Bought " + newItem->getName() + "!";
+        } else {
+            delete newItem;
+            return "Inventory full!";
+        }
+    }
+
+    string sellShopItem(int index) {
+        if (!activeMerchant) return "Shop closed.";
+        
+        if (index < 0 || index >= hero.getInventory().size()) return "Invalid item.";
+        
+        Item* itemToSell = hero.getInventory()[index];
+        
+        // Esya silinmeden once ismini ve fiyati aliyoruz!
+        string itemName = itemToSell->getName();
+        int itemVal = itemToSell->getPrice();
+        int sellPrice = (itemVal * 3) / 5;
+        
+        // Esyayi sil
+        string removeMsg = hero.removeItem(index);
+        
+        if (removeMsg.find("discarded") != string::npos) {
+             hero.goldChange(sellPrice);
+             // Artik itemToSell pointer'ina erismiyoruz, cunku silindi.
+             // Onceden aldigimiz itemName'i kullaniyoruz.
+             return "Sold " + itemName + " for " + to_string(sellPrice) + " G.";
+        } 
+        else {
+            return "Cannot sell this item!"; 
+        }
+    }
+
     // --- ACTIONS ---
 
-    // 1. Hareket Mantigi (DUZELTILDI)
     string attemptMove(int nextRoomID) {
         if (nextRoomID == -1) {
             return "The path is blocked.";
         }
-        
         Room* next = mapMgr.getRoom(nextRoomID);
         if (next) {
             currentRoom = next;
-            // DUZELTME BURADA:
-            // Eskiden sadece 'currentRoom->info' donduruyorduk.
-            // Simdi 'lookAtRoom()' cagiriyoruz ki yerdeki esya bilgisini de eklesin.
             return lookAtRoom(); 
         }
         return "Unknown path.";
     }
 
-    // 2. Etkilesim
     string tryPickupItem() {
         if (currentRoom->itemID != -1) {
             Item* item = itemMgr.getItem(currentRoom->itemID);
             if (item) {
                 if (hero.addItem(item)) {
                     currentRoom->itemID = -1; 
-                    // Esyayi aldiktan sonra odaya tekrar bakalim (yazi guncellensin)
-                    // "Picked up X" yazisi ustune odanin temiz hali gelir.
-                    // Ama burada sadece bilgilendirme donelim, typer halleder.
                     return "Picked up [" + item->getName() + "]";
                 } else {
                     delete item; 
@@ -229,33 +280,23 @@ public:
         return "Nothing here.";
     }
 
-    // 3. Odaya Bakis (Akilli Versiyon)
     string lookAtRoom() {
         if(!currentRoom) return "Void.";
-
-        // Odanin kendi aciklamasi
         string desc = formatText(currentRoom->info);
-
-        // Yerde esya var mi?
         if (currentRoom->itemID != -1) {
             Item* tempItem = itemMgr.getItem(currentRoom->itemID);
             if (tempItem) {
-                // Alt satira esya bilgisini ekle
                 desc += "\nYou see a [" + tempItem->getName() + "] here.";
                 delete tempItem; 
             }
         }
-
-        // 2. (YENI) Odada NPC var mi?
         NPC* npc = getRoomNPC();
         if (npc) {
             desc += "\n\n[" + npc->getName() + "] is standing here.";
         }
-
         return desc;
     }
     
-    // 4. Cheat
     void addGoldCheat(int amount) {
         hero.goldChange(amount);
     }

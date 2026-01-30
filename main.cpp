@@ -1,7 +1,7 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <vector>
-#include <sstream> // Kelime kelime bolmek icin gerekli
+#include <sstream> 
 
 // --- ENTEGRASYON: GAME ENGINE ---
 #include "Game.h" 
@@ -9,34 +9,47 @@
 enum class GameState {
     EXPLORING,
     COMBAT,
-    DIALOGUE
+    DIALOGUE,
+    SHOP 
 };
 
 const sf::Color BORDEAUX_COLOR = sf::Color(110, 0, 0); 
 
-// --- YARDIMCI FONKSIYON: METIN KAYDIRMA (TEXT WRAPPING) ---
+// --- YARDIMCI FONKSIYON: METIN KAYDIRMA (DUZELTILDI - SATIR KORUMALI) ---
 std::string wrapText(sf::String text, int width, const sf::Font& font, int charSize) {
     std::string wrappedText = "";
     std::string currentLine = "";
     
-    std::stringstream ss(text.toAnsiString());
-    std::string word;
+    // 1. Once metni mevcut satir sonlarina (\n) gore parcalara boluyoruz.
+    // Boylece oyunun koydugu zorunlu enter'lar kaybolmuyor.
+    std::stringstream lineStream(text.toAnsiString());
+    std::string segment;
     
     sf::Text tempText(font);
     tempText.setCharacterSize(charSize);
 
-    while (ss >> word) {
-        std::string testLine = currentLine + (currentLine.empty() ? "" : " ") + word;
-        tempText.setString(testLine);
+    while(std::getline(lineStream, segment, '\n')) {
+        // 2. Her parcayi kelime kelime isleyip sigdiriyoruz
+        std::stringstream wordStream(segment);
+        std::string word;
         
-        if (tempText.getLocalBounds().size.x > width) {
-            wrappedText += currentLine + "\n";
-            currentLine = word; 
-        } else {
-            currentLine = testLine;
+        while (wordStream >> word) {
+            std::string testLine = currentLine + (currentLine.empty() ? "" : " ") + word;
+            tempText.setString(testLine);
+            
+            // Genislik sinirini asti mi?
+            if (tempText.getLocalBounds().size.x > width) {
+                wrappedText += currentLine + "\n";
+                currentLine = word; 
+            } else {
+                currentLine = testLine;
+            }
         }
+        // Parca bitti, kalanini ekle ve orijinal satir sonunu (\n) koy
+        wrappedText += currentLine + "\n";
+        currentLine = "";
     }
-    wrappedText += currentLine;
+    
     return wrappedText;
 }
 
@@ -48,7 +61,7 @@ void updateStatText(sf::Text& text, Player& player) {
     content += "HP:   " + std::to_string(player.getHp()) + "/" + std::to_string(player.getMaxHp()) + "\n\n";
     content += "ATK:  " + std::to_string(player.getAtk()) + "\n";
     content += "DEF:  " + std::to_string(player.getDef()) + "\n\n";
-    content += "GOLD: " + std::to_string(player.getGold()) + "\n";
+    content += "GOLD: " + std::to_string(player.getGold()) + "\n"; 
     content += "EXP:  " + std::to_string(player.getExp()) + "\n\n";
     content += "Weapon\n[" + player.getWeaponName() + "]\n\n";
     content += "Armor\n[" + player.getArmorName() + "]";
@@ -58,7 +71,6 @@ void updateStatText(sf::Text& text, Player& player) {
 // --- ENVANTER CIZME ---
 void drawInventory(sf::RenderWindow& window, sf::Font& font, Player& player, float startX, float startY, sf::Vector2f mousePos) {
     const auto& inv = player.getInventory();
-    
     sf::Text title(font);
     title.setString("--- BACKPACK ---");
     title.setCharacterSize(20);
@@ -67,7 +79,6 @@ void drawInventory(sf::RenderWindow& window, sf::Font& font, Player& player, flo
     window.draw(title);
 
     float currentY = startY + 40.f; 
-    
     for (int i = 0; i < 10; ++i) {
         sf::Text slotText(font);
         slotText.setCharacterSize(18);
@@ -84,7 +95,6 @@ void drawInventory(sf::RenderWindow& window, sf::Font& font, Player& player, flo
             slotText.setString("[" + std::to_string(i + 1) + "] - Empty -");
             slotText.setFillColor(sf::Color(100, 100, 100)); 
         }
-
         window.draw(slotText);
         currentY += 25.f; 
     }
@@ -95,7 +105,6 @@ struct Typewriter {
     std::string fullText;     
     std::string currentText;  
     sf::Clock charClock;      
-    
     size_t charIndex = 0;     
     float speed = 0.025f;     
     bool isFinished = true;   
@@ -114,7 +123,6 @@ struct Typewriter {
                 currentText += fullText[charIndex]; 
                 charIndex++;
                 charClock.restart(); 
-                
                 if (charIndex >= fullText.size()) {
                     isFinished = true; 
                 }
@@ -128,10 +136,7 @@ struct Typewriter {
         isFinished = true;
     }
 
-    bool isBusy() {
-        return (charIndex < fullText.size());
-    }
-
+    bool isBusy() { return (charIndex < fullText.size()); }
     std::string getCurrentText() { return currentText; }
 };
 
@@ -221,14 +226,12 @@ void updateEnemiesInView(std::vector<EnemyTarget>& enemyShapes, Room* room, floa
 struct VisualOption {
     sf::Text text;
     int index; 
-    
     VisualOption(sf::Font& font, std::string _text, int _index, float x, float y) : index(_index), text(font) {
         text.setString("> " + _text); 
         text.setCharacterSize(18);
         text.setFillColor(sf::Color(200, 200, 200)); 
         text.setPosition({x, y}); 
     }
-    
     bool isHovered(sf::Vector2f mousePos) { return text.getGlobalBounds().contains(mousePos); }
 };
 
@@ -305,17 +308,15 @@ struct Button {
     }
 };
 
-// --- BUTON DURUMLARINI GUNCELLEME (GRI MAP/INV DESTEGI EKLENDI) ---
+// --- BUTON DURUMLARINI GUNCELLEME ---
 void updateButtonStates(std::vector<Button>& buttons, GameState state, Room* room, 
                         const sf::Texture& normalTex, const sf::Texture& greyTex,
                         const sf::Texture& mapTex, const sf::Texture& mapGrayTex,
                         const sf::Texture& invTex, const sf::Texture& invGrayTex) {
     
-    // (YENI) MAP ve INV butonlarini varsayilan olarak "AKTIF" yap (Renkli)
-    // EXPLORING moduna gecildiginde otomatik olarak renkleri duzelecek.
     if (buttons.size() >= 6) {
-        buttons[4].setStyle(true, mapTex); // MAP Renkli
-        buttons[5].setStyle(true, invTex); // INV Renkli
+        buttons[4].setStyle(true, mapTex); 
+        buttons[5].setStyle(true, invTex); 
     }
 
     if (state == GameState::EXPLORING) {
@@ -340,21 +341,31 @@ void updateButtonStates(std::vector<Button>& buttons, GameState state, Room* roo
         buttons[3].setLabelText("RUN");
     }
     else if (state == GameState::DIALOGUE) {
-        // Diyalogdayken ilk 4 buton pasif (Gri)
         for(int i=0; i<4; i++) {
             buttons[i].setLabelText("");
             buttons[i].setStyle(false, greyTex);
         }
-        // MAP ve INV de pasif (GRI TEXTURE ILE)
         if (buttons.size() >= 6) {
-            buttons[4].setStyle(false, mapGrayTex); // Gri Map
-            buttons[5].setStyle(false, invGrayTex); // Gri Inv
+            buttons[4].setStyle(false, mapGrayTex);
+            buttons[5].setStyle(false, invGrayTex);
+        }
+    }
+    else if (state == GameState::SHOP) {
+        for(int i=0; i<4; i++) buttons[i].setStyle(true, normalTex);
+        buttons[0].setLabelText("BUY"); 
+        buttons[1].setLabelText("SELL");
+        buttons[2].setLabelText("TALK");
+        buttons[3].setLabelText("EXIT");
+        
+        if (buttons.size() >= 6) {
+            buttons[4].setStyle(false, mapGrayTex); 
+            buttons[5].setStyle(true, invTex); 
         }
     }
 }
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Final Polish", sf::State::Fullscreen);
+    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "RPG - Fixed Formatting & Delay", sf::State::Fullscreen);
     window.setFramerateLimit(60);
     window.setMouseCursorVisible(true);
     sf::View gameView(sf::FloatRect({0.f, 0.f}, {960.f, 540.f}));
@@ -362,6 +373,7 @@ int main() {
 
     GameState currentState = GameState::EXPLORING;
     bool isInventoryOpen = false; 
+    bool isSellingMode = false; 
 
     Game game; 
     Typewriter typer; 
@@ -374,12 +386,11 @@ int main() {
     sf::Texture statTexture; if (!statTexture.loadFromFile("textures/Statbox[Final].png")) return -1;
     sf::Texture buttonTexture; if (!buttonTexture.loadFromFile("textures/Button[Final].png")) return -1;
     
-    // (YENI) Gri Texturelar
     sf::Texture inventoryTexture; if (!inventoryTexture.loadFromFile("textures/Inventory[Final].png")) return -1;
-    sf::Texture inventoryGrayTexture; if (!inventoryGrayTexture.loadFromFile("textures/Inventory[Gray].png")) { inventoryGrayTexture = inventoryTexture; } // Hata olursa normali kullan
+    sf::Texture inventoryGrayTexture; if (!inventoryGrayTexture.loadFromFile("textures/Inventory[Gray].png")) { inventoryGrayTexture = inventoryTexture; }
     
     sf::Texture mapTexture; if (!mapTexture.loadFromFile("textures/Map[Final].png")) { mapTexture = inventoryTexture; }
-    sf::Texture mapGrayTexture; if (!mapGrayTexture.loadFromFile("textures/Map[Gray].png")) { mapGrayTexture = mapTexture; } // Hata olursa normali kullan
+    sf::Texture mapGrayTexture; if (!mapGrayTexture.loadFromFile("textures/Map[Gray].png")) { mapGrayTexture = mapTexture; }
 
     sf::Texture buttonGreyTexture; if (!buttonGreyTexture.loadFromFile("textures/Button[Grey].png")) return -1;
 
@@ -445,11 +456,11 @@ int main() {
     npcText.setFillColor(BORDEAUX_COLOR); 
     npcText.setPosition({dialogSprite.getPosition().x + textPadX, dialogSprite.getPosition().y + textPadY}); 
     
-    // ILK METIN (Wrap - 480px genislik)
     typer.start(wrapText(game.lookAtRoom(), 480, font, 16));
 
-    // --- DIYALOG SECENEKLERI LISTESI ---
+    // --- DIYALOG VE SHOP LISTELERI ---
     std::vector<VisualOption> dialogueOptions; 
+    std::vector<VisualOption> shopOptions; 
 
     std::vector<Button> buttons;
     float colWidth = rightWidth / 2.f;       
@@ -469,7 +480,6 @@ int main() {
         );
     }
     
-    // Baslangic buton durumu (Gri texturelar ile birlikte)
     updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
                        buttonTexture, buttonGreyTexture, 
                        mapTexture, mapGrayTexture, 
@@ -478,6 +488,11 @@ int main() {
     float purpleH = areaHeight / 2.f;        
     buttons.emplace_back("MAP", "", mapTexture, font, sf::Vector2f(actionStartX + colWidth, actionStartY), sf::Vector2f(colWidth, purpleH));
     buttons.emplace_back("INV", "", inventoryTexture, font, sf::Vector2f(actionStartX + colWidth, actionStartY + purpleH), sf::Vector2f(colWidth, purpleH));
+
+    // --- (YENI) HOVER ZAMANLAYICISI ---
+    sf::Clock hoverClock;
+    int lastHoverIndex = -1; // Hangi itemin uzerindeydik?
+    sf::Clock messageTimer;  // Mesajin ne kadar sure ekranda kalacagini takip eder
 
     while (window.isOpen()) {
         sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
@@ -500,7 +515,7 @@ int main() {
                     continue; 
                 }
 
-                // --- 2. ENVANTER ETKILESIMI ---
+                // --- 2. ENVANTER ETKILESIMI (SATIS DAHIL) ---
                 if (isInventoryOpen) {
                     float listStartX = gameStartX + 50.f;
                     float listStartY = 50.f + 40.f;
@@ -509,17 +524,35 @@ int main() {
                     if (clickPosF.x >= listStartX && clickPosF.x <= listStartX + 300.f) {
                         int clickedIndex = (int)((clickPosF.y - listStartY) / lineHeight);
                         if (clickedIndex >= 0 && clickedIndex < 10) {
-                            if (mousePress->button == sf::Mouse::Button::Left) {
-                                std::string result = game.playerUseItem(clickedIndex);
-                                if (!result.empty()) {
-                                    typer.start(wrapText(result, 480, font, 16)); 
-                                    updateStatText(statText, game.getPlayer()); 
+                            
+                            // A) SATIS MODU (SHOP)
+                            if (currentState == GameState::SHOP && isSellingMode) {
+                                if (clickedIndex < game.getPlayer().getInventory().size()) { 
+                                    if (mousePress->button == sf::Mouse::Button::Left) {
+                                        std::string result = game.sellShopItem(clickedIndex);
+                                        typer.start(wrapText(result, 480, font, 16));
+                                        updateStatText(statText, game.getPlayer());
+                                        // Mesajin hemen kaybolmamasi icin timer'i resetle
+                                        messageTimer.restart();
+                                    }
                                 }
                             }
-                            else if (mousePress->button == sf::Mouse::Button::Right) {
-                                std::string result = game.playerDropItem(clickedIndex);
-                                if (!result.empty()) {
-                                    typer.start(wrapText(result, 480, font, 16));
+                            // B) NORMAL MOD
+                            else {
+                                if (mousePress->button == sf::Mouse::Button::Left) {
+                                    std::string result = game.playerUseItem(clickedIndex);
+                                    if (!result.empty()) {
+                                        typer.start(wrapText(result, 480, font, 16)); 
+                                        updateStatText(statText, game.getPlayer()); 
+                                        messageTimer.restart(); // Mesaj icin timer
+                                    }
+                                }
+                                else if (mousePress->button == sf::Mouse::Button::Right) {
+                                    std::string result = game.playerDropItem(clickedIndex);
+                                    if (!result.empty()) {
+                                        typer.start(wrapText(result, 480, font, 16));
+                                        messageTimer.restart(); // Mesaj icin timer
+                                    }
                                 }
                             }
                         }
@@ -532,22 +565,30 @@ int main() {
                         if (opt.text.getGlobalBounds().contains(clickPosF)) {
                             std::string response = game.selectDialogueOption(opt.index);
                             
-                            // DIYALOG BITTI
                             if (response.empty()) {
                                 currentState = GameState::EXPLORING;
                                 typer.start(wrapText(game.lookAtRoom(), 480, font, 16));
-                                // Butonlari geri dondur (Renkli)
                                 updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
                                                    buttonTexture, buttonGreyTexture, 
                                                    mapTexture, mapGrayTexture, 
                                                    inventoryTexture, inventoryGrayTexture);
                                 dialogueOptions.clear(); 
                             } 
-                            // SAVAS BASLADI
                             else if (response == "COMBAT_START") {
                                 currentState = GameState::COMBAT;
                                 typer.start("ENEMIES ATTACK!");
                                 dialogueOptions.clear();
+                                updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
+                                                   buttonTexture, buttonGreyTexture, 
+                                                   mapTexture, mapGrayTexture, 
+                                                   inventoryTexture, inventoryGrayTexture);
+                            }
+                            else if (response == "SHOP_OPEN") {
+                                currentState = GameState::SHOP;
+                                game.enterShop(); 
+                                typer.start("Welcome to my shop! Take a look.");
+                                dialogueOptions.clear(); 
+                                shopOptions.clear();     
                                 updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
                                                    buttonTexture, buttonGreyTexture, 
                                                    mapTexture, mapGrayTexture, 
@@ -562,10 +603,21 @@ int main() {
                     }
                 }
 
+                // --- SHOP TIKLAMA (SATIN ALMA) ---
+                if (currentState == GameState::SHOP && !typer.isBusy() && !isSellingMode) {
+                    for (const auto& opt : shopOptions) {
+                        if (opt.text.getGlobalBounds().contains(clickPosF)) {
+                            std::string result = game.buyShopItem(opt.index);
+                            typer.start(wrapText(result, 480, font, 16));
+                            updateStatText(statText, game.getPlayer()); 
+                            messageTimer.restart(); // Mesaj icin timer
+                        }
+                    }
+                }
+
                 // --- 4. DIGER ETKILESIMLER ---
-                if (mousePress->button == sf::Mouse::Button::Left && currentState != GameState::DIALOGUE) {
+                if (mousePress->button == sf::Mouse::Button::Left) {
                     
-                    // Butonlar
                     for (auto& btn : buttons) { 
                         if (btn.isClicked(clickPosF)) {
                             // INV
@@ -575,7 +627,7 @@ int main() {
                                 else typer.start(wrapText(game.lookAtRoom(), 480, font, 16));
                             }
                             // MAP
-                            else if (btn.id == "MAP" && !isInventoryOpen) {
+                            else if (btn.id == "MAP" && !isInventoryOpen && currentState != GameState::SHOP) {
                                 typer.start("Map system active.");
                             }
                             // ACTIONS
@@ -604,7 +656,6 @@ int main() {
                                             npcs.emplace_back(movedNPC->getName(), centerX + 100.f, centerY);
                                         }
                                         
-                                        // OTOMATIK DIYALOG
                                         NPC* autoNPC = game.checkForAutoDialogue();
                                         if (autoNPC) {
                                             currentState = GameState::DIALOGUE;
@@ -624,41 +675,84 @@ int main() {
                                     else if (btn.id == "BTN_2") typer.start("ITEM Used!");
                                     else if (btn.id == "BTN_3") typer.start("RUN!");
                                 }
+                                // SHOP BUTONLARI
+                                else if (currentState == GameState::SHOP) {
+                                    // BUY
+                                    if (btn.id == "BTN_0") { 
+                                        isSellingMode = false;
+                                        isInventoryOpen = false; 
+                                        typer.start("Buying Mode: Click on an item to buy.");
+                                    }
+                                    // SELL
+                                    else if (btn.id == "BTN_1") { 
+                                        isSellingMode = true;
+                                        isInventoryOpen = true; 
+                                        typer.start("Selling Mode: Click on an inventory item to sell.");
+                                    }
+                                    // TALK
+                                    else if (btn.id == "BTN_2") { 
+                                        game.exitShop();
+                                        shopOptions.clear();
+                                        isSellingMode = false;
+                                        isInventoryOpen = false;
+                                        
+                                        NPC* currentNPC = game.getRoomNPC();
+                                        if (currentNPC) {
+                                            currentState = GameState::DIALOGUE;
+                                            typer.start(wrapText(game.startDialogue(currentNPC), 480, font, 16));
+                                            updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
+                                                               buttonTexture, buttonGreyTexture, 
+                                                               mapTexture, mapGrayTexture, 
+                                                               inventoryTexture, inventoryGrayTexture);
+                                        }
+                                    }
+                                    // EXIT
+                                    else if (btn.id == "BTN_3") { 
+                                        game.exitShop();
+                                        shopOptions.clear();
+                                        isSellingMode = false;
+                                        isInventoryOpen = false;
+                                        
+                                        currentState = GameState::EXPLORING;
+                                        typer.start(wrapText(game.lookAtRoom(), 480, font, 16));
+                                        updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
+                                                           buttonTexture, buttonGreyTexture, 
+                                                           mapTexture, mapGrayTexture, 
+                                                           inventoryTexture, inventoryGrayTexture);
+                                    }
+                                }
                             }
                         } 
                     }
 
+                    // DUNYA ETKILESIMI (Sadece envanter kapaliyken)
                     if (!isInventoryOpen) {
-                        // Dusman
-                        for (auto& enemy : enemies) { 
-                            if (enemy.isClicked(clickPosF)) typer.start("Target: " + enemy.id);
-                        }
-                        // Loot
-                        for (auto& item : groundItems) {
-                            if (item.isClicked(clickPosF)) {
-                                std::string msg = game.tryPickupItem();
-                                typer.start(msg);
-                                if (msg.find("Picked up") != std::string::npos) {
-                                    groundItems.clear();
-                                    updateStatText(statText, game.getPlayer());
+                        if (currentState == GameState::EXPLORING) {
+                            for (auto& enemy : enemies) { 
+                                if (enemy.isClicked(clickPosF)) typer.start("Target: " + enemy.id);
+                            }
+                            for (auto& item : groundItems) {
+                                if (item.isClicked(clickPosF)) {
+                                    std::string msg = game.tryPickupItem();
+                                    typer.start(msg);
+                                    if (msg.find("Picked up") != std::string::npos) {
+                                        groundItems.clear();
+                                        updateStatText(statText, game.getPlayer());
+                                    }
                                 }
                             }
-                        }
-                        
-                        // NPC Tiklama
-                        for (auto& npc : npcs) {
-                            if (npc.isClicked(clickPosF)) {
-                                NPC* clickedNPC = game.getRoomNPC();
-                                if (clickedNPC) {
-                                    currentState = GameState::DIALOGUE;
-                                    std::string startText = game.startDialogue(clickedNPC);
-                                    typer.start(wrapText(startText, 480, font, 16));
-                                    
-                                    // Butonlari diyalog moduna al (Gri)
-                                    updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
-                                                       buttonTexture, buttonGreyTexture, 
-                                                       mapTexture, mapGrayTexture, 
-                                                       inventoryTexture, inventoryGrayTexture);
+                            for (auto& npc : npcs) {
+                                if (npc.isClicked(clickPosF)) {
+                                    NPC* clickedNPC = game.getRoomNPC();
+                                    if (clickedNPC) {
+                                        currentState = GameState::DIALOGUE;
+                                        std::string startText = game.startDialogue(clickedNPC);
+                                        typer.start(wrapText(startText, 480, font, 16));
+                                        updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
+                                                           buttonTexture, buttonGreyTexture, 
+                                                           mapTexture, mapGrayTexture, 
+                                                           inventoryTexture, inventoryGrayTexture);
+                                    }
                                 }
                             }
                         }
@@ -686,29 +780,63 @@ int main() {
             }
         }
 
-        for (auto& opt : dialogueOptions) {
-            if (opt.text.getGlobalBounds().contains(mousePos)) {
-                opt.text.setFillColor(sf::Color::Yellow); 
-            } else {
-                opt.text.setFillColor(sf::Color(200, 200, 200)); 
+        // --- SHOP LISTESINI GUNCELLEME ---
+        if (currentState == GameState::SHOP && !typer.isBusy() && shopOptions.empty() && !isSellingMode) {
+            std::vector<std::string> items = game.getShopItems();
+            
+            float startX = dialogSprite.getPosition().x + 50.f; 
+            float startY = dialogSprite.getPosition().y + 50.f; 
+            
+            for (size_t i = 0; i < items.size(); i++) {
+                shopOptions.emplace_back(font, items[i], i, startX, startY + (i * 20.f)); 
             }
         }
 
+        for (auto& opt : dialogueOptions) {
+            if (opt.text.getGlobalBounds().contains(mousePos)) opt.text.setFillColor(sf::Color::Yellow); 
+            else opt.text.setFillColor(sf::Color(200, 200, 200)); 
+        }
+        for (auto& opt : shopOptions) {
+            if (opt.text.getGlobalBounds().contains(mousePos)) opt.text.setFillColor(sf::Color::Green); 
+            else opt.text.setFillColor(sf::Color(200, 200, 200)); 
+        }
+
         bool isHoveringItem = false;
-        if (isInventoryOpen && !typer.isBusy()) { 
+        
+        // --- HOVER MANTIGI (DUZELTILDI) ---
+        if (isInventoryOpen) { 
             float listStartX = gameStartX + 50.f;
             float listStartY = 50.f + 40.f;
             float lineHeight = 25.f;
 
             if (mousePos.x >= listStartX && mousePos.x <= listStartX + 300.f) {
                 int hoverIndex = (int)((mousePos.y - listStartY) / lineHeight);
+                
+                // Hover indeksi degisti mi?
+                if (hoverIndex != lastHoverIndex) {
+                    lastHoverIndex = hoverIndex;
+                    hoverClock.restart(); 
+                }
+
                 if (hoverIndex >= 0 && hoverIndex < 10) {
-                    std::string desc = game.getItemDesc(hoverIndex);
-                    if (!desc.empty()) {
-                        npcText.setString("Description:\n" + wrapText(desc, 480, font, 16)); 
-                        isHoveringItem = true;
+                    // Mesaj timer'i 2 saniyeyi gectiyse VE hover uzerinde 0.2 saniye durulduysa
+                    if (messageTimer.getElapsedTime().asSeconds() > 2.0f && hoverClock.getElapsedTime().asSeconds() > 0.2f) {
+                        
+                        std::string desc = game.getItemDesc(hoverIndex);
+                        if (!desc.empty()) {
+                            if (isSellingMode && currentState == GameState::SHOP) {
+                                int val = game.getItemValue(hoverIndex);
+                                int sellPrice = (val * 3) / 5;
+                                desc += "\n\nSell Price: " + std::to_string(sellPrice) + " G";
+                            }
+                            
+                            npcText.setString("Description:\n" + wrapText(desc, 480, font, 16)); 
+                            isHoveringItem = true;
+                        }
                     }
                 }
+            } else {
+                lastHoverIndex = -1; 
             }
         }
 
@@ -739,6 +867,12 @@ int main() {
         
         if (currentState == GameState::DIALOGUE && !typer.isBusy()) {
             for (const auto& opt : dialogueOptions) {
+                window.draw(opt.text);
+            }
+        }
+        
+        if (currentState == GameState::SHOP && !typer.isBusy() && !isSellingMode) {
+            for (const auto& opt : shopOptions) {
                 window.draw(opt.text);
             }
         }
