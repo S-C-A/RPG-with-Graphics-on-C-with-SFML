@@ -95,7 +95,51 @@ private:
             }
         }
     }
-public:
+    public:
+    string collectLootUI(Player* hero, Monster* mob, ItemManager* itemMgr) {
+        string report = "";
+        
+        // (GOLD)
+        if (mob->getGold() > 0) {
+            hero->goldChange(mob->getGold());
+            report += "Found " + to_string(mob->getGold()) + " gold. ";
+        }
+
+        // (EXP)
+        if (mob->getExp() > 0) {
+            hero->addExp(mob->getExp());
+            report += "Gained " + to_string(mob->getExp()) + " exp.\n";
+        }
+
+        // (ITEMS)
+        const vector<int>& drops = mob->getLootList();
+        for (int itemID : drops) {
+            Item* newItem = itemMgr->getItem(itemID);
+            if (newItem) {
+                if (hero->addItem(newItem)) {
+                    report += "Loot: " + newItem->getName() + ". ";
+                } else {
+                    report += "Bag Full! " + newItem->getName() + " lost. ";
+                    delete newItem;
+                }
+            }
+        }
+        return report;
+    }
+
+    string attackTarget(Player* hero, Monster* target) {
+        int damage = hero->getAtk() - target->getDef();
+        if (damage < 0) damage = 0;
+        
+        target->takeDamage(damage);
+        
+        string msg = "Hit! Dealt " + to_string(damage) + " damage.";
+        if (!target->isDead()) {
+            msg += "\nTarget HP: " + to_string(target->getHp());
+        }
+        return msg;
+    }
+
     bool startBattle(Player* hero, std::vector<Monster*>& enemies, ItemManager& itemMgr) {
         
         for (auto n : enemies) cout << n->getName() << " blocks your path!" << endl;    

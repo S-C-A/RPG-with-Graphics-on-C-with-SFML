@@ -78,6 +78,14 @@ public:
     Player& getPlayer() { return hero; }
     Room* getCurrentRoom() { return currentRoom; }
 
+    // --- ACCESSORS for Main.cpp ---
+    CombatManager* getCombatManager() { return &combatMgr; }
+    EnemyManager* getEnemyManager() { return &mobMgr; }
+    ItemManager* getItemManager() { return &itemMgr; }
+    
+    // Spesifik dusman verisi cekmek icin
+    Monster* getMonsterClone(int id) { return mobMgr.getEnemy(id); }
+
     NPC* getRoomNPC() {
         if (currentRoom && currentRoom->npcID != -1) {
             return npcMgr.getNPC(currentRoom->npcID);

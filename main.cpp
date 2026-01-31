@@ -5,6 +5,7 @@
 
 // --- ENTEGRASYON: GAME ENGINE ---
 #include "Game.h" 
+#include "combat.h"
 
 enum class GameState {
     EXPLORING,
@@ -425,6 +426,12 @@ int main() {
     std::vector<EnemyTarget> enemies; 
     std::vector<ItemTarget> groundItems; 
     std::vector<NPCTarget> npcs; 
+    
+    // --- COMBAT STATE VARIABLES ---
+    std::vector<Monster*> activeMonsters; 
+    bool isPlayerTurn = true;
+    bool isTargetSelection = false;
+
     float centerX = gameStartX + (leftWidth / 2.f); 
     float centerY = splitY / 2.f;
 
@@ -645,18 +652,46 @@ int main() {
                                         typer.start(wrapText(moveMsg, 480, font, 16)); 
                                         updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
                                         
-                                        groundItems.clear();
-                                        if (game.getCurrentRoom() && game.getCurrentRoom()->itemID != -1) {
-                                            groundItems.emplace_back("Loot", centerX, centerY + 50.f);
+                                        // --- OTO-SAVAS KONTROLU ---
+                                        if (!game.getCurrentRoom()->monsterID.empty()) {
+                                            currentState = GameState::COMBAT;
+                                            
+                                            // 1. Savas degiskenlerini sifirla
+                                            isPlayerTurn = true;
+                                            isTargetSelection = false; 
+                                            typer.start("Enemies ahead! Battle Start. (Your Turn)"); 
+                                            
+                                            // 2. Canli canavar nesnelerini olustur
+                                            for(auto m : activeMonsters) delete m; 
+                                            activeMonsters.clear();
+                                            for(int mID : game.getCurrentRoom()->monsterID) {
+                                                activeMonsters.push_back(game.getMonsterClone(mID));
+                                            }
+
+                                            // 3. Savas Modu: Esya ve NPC yok
+                                            groundItems.clear();
+                                            npcs.clear();
+                                            
+                                            updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
+                                                           buttonTexture, buttonGreyTexture, 
+                                                           mapTexture, mapGrayTexture, 
+                                                           inventoryTexture, inventoryGrayTexture);
                                         }
-                                        
-                                        npcs.clear();
-                                        NPC* movedNPC = game.getRoomNPC(); 
-                                        if (movedNPC) {
-                                            npcs.emplace_back(movedNPC->getName(), centerX + 100.f, centerY);
-                                        }
-                                        
-                                        NPC* autoNPC = game.checkForAutoDialogue();
+                                        else {
+                                            // 1. Esyalari Yukle
+                                            groundItems.clear();
+                                            if (game.getCurrentRoom() && game.getCurrentRoom()->itemID != -1) {
+                                                groundItems.emplace_back("Loot", centerX, centerY + 50.f);
+                                            }
+                                            
+                                            // 2. NPC Yukle
+                                            npcs.clear();
+                                            NPC* movedNPC = game.getRoomNPC(); 
+                                            if (movedNPC) {
+                                                npcs.emplace_back(movedNPC->getName(), centerX + 100.f, centerY);
+                                            }
+                                            
+                                            NPC* autoNPC = game.checkForAutoDialogue();
                                         if (autoNPC) {
                                             currentState = GameState::DIALOGUE;
                                             std::string startText = game.startDialogue(autoNPC);
@@ -670,10 +705,16 @@ int main() {
                                     }
                                 }
                                 else if (currentState == GameState::COMBAT) {
-                                    if (btn.id == "BTN_0") typer.start("ATTACK!");
-                                    else if (btn.id == "BTN_1") typer.start("DEFEND!");
-                                    else if (btn.id == "BTN_2") typer.start("ITEM Used!");
-                                    else if (btn.id == "BTN_3") typer.start("RUN!");
+                                    if (btn.id == "BTN_0") {
+                                        // ATK TUSU
+                                        if (!isTargetSelection) { 
+                                            isTargetSelection = true;
+                                            typer.start("Select Target! (Click on Enemy)");
+                                        }
+                                    }
+                                    else if (btn.id == "BTN_1") typer.start("Defend (Not impl)");
+                                    else if (btn.id == "BTN_2") typer.start("Item (Not impl)");
+                                    else if (btn.id == "BTN_3") typer.start("Run (Not impl)");
                                 }
                                 // SHOP BUTONLARI
                                 else if (currentState == GameState::SHOP) {
@@ -726,36 +767,115 @@ int main() {
                     }
 
                     // DUNYA ETKILESIMI (Sadece envanter kapaliyken)
+                    // DUNYA ETKILESIMI (Sadece envanter kapaliyken)
                     if (!isInventoryOpen) {
-                        if (currentState == GameState::EXPLORING) {
-                            for (auto& enemy : enemies) { 
-                                if (enemy.isClicked(clickPosF)) typer.start("Target: " + enemy.id);
+                        
+                        switch (currentState) {
+                            case GameState::EXPLORING:
+                            {
+                                // KESIF MODU: Esya ve NPC etkilesimi
+                                for (auto& item : groundItems) {
+                                    if (item.isClicked(clickPosF)) {
+                                        std::string msg = game.tryPickupItem();
+                                        typer.start(msg);
+                                        if (msg.find("Picked up") != std::string::npos) {
+                                            groundItems.clear();
+                                            updateStatText(statText, game.getPlayer());
+                                        }
+                                    }
+                                }
+                                for (auto& npc : npcs) {
+                                    if (npc.isClicked(clickPosF)) {
+                                        NPC* clickedNPC = game.getRoomNPC();
+                                        if (clickedNPC) {
+                                            currentState = GameState::DIALOGUE;
+                                            std::string startText = game.startDialogue(clickedNPC);
+                                            typer.start(wrapText(startText, 480, font, 16));
+                                            updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
+                                                               buttonTexture, buttonGreyTexture, 
+                                                               mapTexture, mapGrayTexture, 
+                                                               inventoryTexture, inventoryGrayTexture);
+                                        }
+                                    }
+                                }
+                                break;
                             }
-                            for (auto& item : groundItems) {
-                                if (item.isClicked(clickPosF)) {
-                                    std::string msg = game.tryPickupItem();
-                                    typer.start(msg);
-                                    if (msg.find("Picked up") != std::string::npos) {
-                                        groundItems.clear();
+
+                            case GameState::COMBAT:
+                            {
+                                // SADECE TARGET SELECTION MODUNDAYSA DUSMANA TIKLANABILIR
+                                if (isTargetSelection) {
+                                    int enemyIndex = -1;
+                                    for (size_t i = 0; i < enemies.size(); i++) { 
+                                        if (enemies[i].isClicked(clickPosF)) {
+                                            enemyIndex = i;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if (enemyIndex != -1) {
+                                        // SALDIRI ISLEMI
+                                        Monster* targetMob = activeMonsters[enemyIndex];
+                                        
+                                        // LOGIC: CombatManager hesaplar (Code Cleanup)
+                                        std::string combatMsg = game.getCombatManager()->attackTarget(&game.getPlayer(), targetMob);
+
+                                        // Oldu mu?
+                                        if (targetMob->isDead()) {
+                                            combatMsg += "\n" + targetMob->getName() + " defeated!";
+                                            
+                                            // Loot (UI icin)
+                                            combatMsg += "\n" + game.getCombatManager()->collectLootUI(&game.getPlayer(), targetMob, game.getItemManager());
+                                            
+                                            // Temizlik
+                                            delete targetMob; 
+                                            activeMonsters.erase(activeMonsters.begin() + enemyIndex); 
+                                            
+                                            // Data ve Gorsel Silme
+                                            game.getCurrentRoom()->monsterID.erase(game.getCurrentRoom()->monsterID.begin() + enemyIndex);
+                                            enemies.erase(enemies.begin() + enemyIndex); 
+
+                                            updateEnemiesInView(enemies, game.getCurrentRoom(), centerX - 50.f, centerY - 50.f);
+
+                                            if (activeMonsters.empty()) {
+                                                combatMsg += "\nVICTORY!";
+                                                currentState = GameState::EXPLORING;
+                                                groundItems.clear();
+                                                if (game.getCurrentRoom() && game.getCurrentRoom()->itemID != -1) {
+                                                    groundItems.emplace_back("Loot", centerX, centerY + 50.f);
+                                                }
+                                                npcs.clear();
+                                                NPC* movedNPC = game.getRoomNPC(); 
+                                                if (movedNPC) {
+                                                    npcs.emplace_back(movedNPC->getName(), centerX + 100.f, centerY);
+                                                }
+                                            } else {
+                                                isTargetSelection = false; 
+                                                isPlayerTurn = false; 
+                                                combatMsg += "\n(Enemy Turn...)"; 
+                                            }
+                                        } 
+                                        else {
+                                            isTargetSelection = false; 
+                                            // isPlayerTurn = false; 
+                                        }
+                                        
+                                        typer.start(wrapText(combatMsg, 480, font, 16));
                                         updateStatText(statText, game.getPlayer());
-                                    }
-                                }
-                            }
-                            for (auto& npc : npcs) {
-                                if (npc.isClicked(clickPosF)) {
-                                    NPC* clickedNPC = game.getRoomNPC();
-                                    if (clickedNPC) {
-                                        currentState = GameState::DIALOGUE;
-                                        std::string startText = game.startDialogue(clickedNPC);
-                                        typer.start(wrapText(startText, 480, font, 16));
+                                        
                                         updateButtonStates(buttons, currentState, game.getCurrentRoom(), 
-                                                           buttonTexture, buttonGreyTexture, 
-                                                           mapTexture, mapGrayTexture, 
-                                                           inventoryTexture, inventoryGrayTexture);
+                                                    buttonTexture, buttonGreyTexture, 
+                                                    mapTexture, mapGrayTexture, 
+                                                    inventoryTexture, inventoryGrayTexture);
                                     }
                                 }
+                                break;
                             }
+                            
+                            default:
+                                break;
                         }
+                    }
                     }
                 }
             }
@@ -862,8 +982,10 @@ int main() {
 
         window.draw(redPanel);
         for (const auto& enemy : enemies) window.draw(enemy.shape);
-        for (const auto& item : groundItems) window.draw(item.shape);
-        for (const auto& npc : npcs) window.draw(npc.shape); 
+        if (currentState != GameState::COMBAT) {
+            for (const auto& item : groundItems) window.draw(item.shape);
+            for (const auto& npc : npcs) window.draw(npc.shape); 
+        } 
 
         if (isInventoryOpen) {
             window.draw(inventoryBg);   
