@@ -804,7 +804,8 @@ int main() {
                             case GameState::COMBAT:
                             {
                                 // SADECE TARGET SELECTION MODUNDAYSA DUSMANA TIKLANABILIR
-                                if (isTargetSelection) {
+                                // SADECE TARGET SELECTION MODUNDAYSA DUSMANA TIKLANABILIR
+                                if (true) { // isTargetSelection bypass (TEST MODE)
                                     int enemyIndex = -1;
                                     for (size_t i = 0; i < enemies.size(); i++) { 
                                         if (enemies[i].isClicked(clickPosF)) {
@@ -817,8 +818,9 @@ int main() {
                                         // SALDIRI ISLEMI
                                         Monster* targetMob = activeMonsters[enemyIndex];
                                         
-                                        // LOGIC: CombatManager hesaplar (Code Cleanup)
-                                        std::string combatMsg = game.getCombatManager()->attackTarget(&game.getPlayer(), targetMob);
+                                        // TEST MODE: INSTANT KILL
+                                        targetMob->takeDamage(9999); 
+                                        std::string combatMsg = "INSTANT KILL (Test Mode)!";
 
                                         // Oldu mu?
                                         if (targetMob->isDead()) {
